@@ -6,8 +6,8 @@ N_set = [9, 16, 25, 36, 49, 64, 81, 100, 400, 900, 1600, 2500, 3600, 4900, 6400,
 strength_set = [0.1, 0.5, 1, 5]
 beta_fix_set = [4, 6, 6.97]
 
-N_set = [10000] 
-strength_set = [5]
+N_set = [25, 100, 2500, 10000] 
+strength_set = [0.1, 0.5, 1, 5]
 beta_fix_set = [4]
 T = 10
 
@@ -28,8 +28,8 @@ for N in N_set:
                 os.makedirs(local_des)
             sftp = client.open_sftp()
             file_name = ['rho.csv', 'lifetime.csv']
-            # file_name = ['rho.csv']
-            file_name = ['realization0.h5']
+            file_name = ['lifetime.csv']
+            # file_name = ['realization0.h5']
             for i in file_name:
                 sftp.get(server_des + i, local_des + i)
             sftp.close()

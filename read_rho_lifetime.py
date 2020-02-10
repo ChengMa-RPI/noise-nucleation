@@ -6,8 +6,8 @@ degree =4
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 400, 900, 1600, 2500, 3600, 4900, 6400, 8100, 10000, 22500, 40000]
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 10000]
 beta_fix = 4
-strength_set =[0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4]
-strength_set = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5]
+sigma_set =[0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4]
+sigma_set = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5]
 
 N_set = [10000]
 T = 10
@@ -21,9 +21,9 @@ log = 0
 ave = 1
 for N in N_set:
 
-    for strength in strength_set:
+    for sigma in sigma_set:
 
-        des = 'data/grid' + str(degree) + '/size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(strength) + '_T=' + str(T) + '/'
+        des = 'data/grid' + str(degree) + '/size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '_T=' + str(T) + '/'
         label = f'strength={strength}'
         # label = None
         title = f'$\\beta=${beta_fix}_N={N}'

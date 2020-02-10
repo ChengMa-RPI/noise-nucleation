@@ -414,13 +414,16 @@ def rho_lifetime(realization, length, des, T, dt):
 
     """
     x = np.zeros((realization, length))
+    y = []  # add data that has transitioned 
     tau = np.ones(realization) * T 
     for i in range(realization):
         des_file = des + 'realization' + str(i) + '.h5'
         data = np.array(pd.read_hdf(des_file))
         x[i] = np.mean(data, -1)
+        if np.sum(data[-1] < 5) == 0:
+            y.append(x[i, -1])
     x_l = np.mean(x[:, 0])
-    x_h = np.mean(x[:, -1])
+    x_h = np.mean(y)
     rho = (x - x_l) / (x_h - x_l)
     rho_last = rho[:, -1]
     succeed = np.where(rho_last > 1/2)[0]

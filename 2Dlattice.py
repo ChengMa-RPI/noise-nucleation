@@ -6,17 +6,17 @@ import time
 import os
 import pandas as pd
 
-N_set = [100]
-strength = 5
-parallel = 4
+N_set = [25]
+strength = 0.1
+parallel = 100
 degree = 4
 beta_fix = 4
 cpu_number = 4
-T = 10
+T = 100
 dt = 0.01
 
 for N in N_set:
-    des = 'data/grid' + str(degree) + '/' + 'size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(strength) + '_T=' + str(T) + '/'
+    des = '../data/grid' + str(degree) + '/' + 'size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(strength) + '_T=' + str(T) + '/'
     if not os.path.exists(des):
         os.makedirs(des)
 
