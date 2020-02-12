@@ -6,24 +6,24 @@ import pandas as pd
 import matplotlib.pyplot as plt 
 import seaborn as sns 
 
-N = 100
+N = 6400
 beta_fix = 4
-strength = 0.1
-T = 100
-plot_interval = 1
+sigma = 0.2
+T = 30
+plot_interval = 0.2
 
-plot_range = T
+plot_range = 20
 duration = 0.3
 degree = 4
 dt = 0.01
 realization_index = 0
 
-des = 'data/grid' + str(degree) + '/size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(strength) + '_T=' + str(T) + '/'
+des = '../data/grid' + str(degree) + '/size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '_T=' + str(T) + '/'
 
 main.heatmap(des, realization_index, N, plot_range, plot_interval, dt)
 
 des_gif = des + f'heatmap/realization{realization_index}/'
-with imageio.get_writer(des_gif + f'N={N}_beta={beta_fix}_sigma_{strength}.gif', mode='I', duration=duration) as writer:
+with imageio.get_writer(des_gif + f'N={N}_beta={beta_fix}_sigma_{sigma}.gif', mode='I', duration=duration) as writer:
     for i in np.arange(0, plot_range, plot_interval):
         filename = des_gif + str(int(i/plot_interval)) + '.png' 
         image = imageio.imread(filename)

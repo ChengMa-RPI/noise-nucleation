@@ -317,6 +317,8 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
     noise= local_state.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * strength
     dyn_all = sdesolver(close(mutual_lattice, *(N, index, degree, A_interaction)), x_initial, t, dW = noise)
     des_file = des + 'realization' + str(store_index) + '.h5'
+    if os.path.exists(des_file):
+        print(f'file exists!{store_index}')
     data = pd.DataFrame(dyn_all)
     data.to_hdf(des_file, key='data', mode='w')
 
@@ -368,7 +370,7 @@ def network_ensemble_grid(N, num_col, degree, beta_fix):
     else:
         return A
 
-def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des):
+def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des, exist_index=0):
     """parallel computing or series computing 
 
     :A: adjacency matrix 
@@ -378,6 +380,7 @@ def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des):
     :parallel: the number of parallel realizations 
     :cpu_number: parallel computing with cpu_number if positive, and series computing if 0
     :des: destination to store the data
+    :exist_index: exist file index
     :returns: None
 
     """
@@ -388,7 +391,6 @@ def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des):
     xs_low = odeint(mutual_lattice, np.ones(N) * 0, np.arange(0, 100, 0.01), args=(N, index, degree, A_interaction))[-1]
     if not os.path.exists(des):
         os.makedirs(des)
-    exist_index = 0
     des_file = des + 'realization' + str(exist_index) + '.h5'
     while os.path.exists(des_file):
         exist_index += 1
@@ -403,36 +405,42 @@ def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des):
             system_collect(i + exist_index, N, index, degree, A_interaction, strength, xs_low, t, dt, des)
     return None
 
-def rho_lifetime(realization, length, des, T, dt):
-    """from several realizations, find rho which is normalized average evolution, and lifetime which is the time when rho exceeds 1/2.
+def rho_lifetime_saving(realization_range, length, des, T, dt):
+    """from given range of realization files [realization_start +1 to realization_end], find rho which is normalized average evolution, and lifetime which is the time when rho exceeds 1/2, and also save x_h data.
 
-    :realization: how many realizations is dealt 
+    :realization_range: read files from realization_range[0] + 1 to realization_range[1] 
     :length: length of time
     :des: the destination where data is saved
     :x_l, x_h: lower and higher stable states
     :returns: None
 
     """
-    x = np.zeros((realization, length))
+    realization_num = realization_range[1] - realization_range[0] 
+    x = np.zeros((realization_num, length))
     y = []  # add data that has transitioned 
-    tau = np.ones(realization) * T 
-    for i in range(realization):
-        des_file = des + 'realization' + str(i) + '.h5'
+    tau = np.ones(realization_num) * T 
+    for i in range(realization_num):
+        des_file = des + 'realization' + str(i+realization_range[0]+1) + '.h5'
         data = np.array(pd.read_hdf(des_file))
         x[i] = np.mean(data, -1)
-        if np.sum(data[-1] < 5) == 0:
+        if np.sum(data[-1] < K) == 0:
             y.append(x[i, -1])
     x_l = np.mean(x[:, 0])
-    x_h = np.mean(y)
-    rho = (x - x_l) / (x_h - x_l)
-    rho_last = rho[:, -1]
-    succeed = np.where(rho_last > 1/2)[0]
-
-    for i in succeed:
-        tau[i] = dt * next(x for x, y in enumerate(rho[i]) if y > 1/2)
-    rho_df = pd.DataFrame(rho)
-    rho_df.to_csv(des +  'rho.csv', mode='a', index=False, header=False)
-    tau_df = pd.DataFrame(tau.reshape(realization, 1))
+    if np.size(y) != 0:
+        x_h = np.mean(y)
+        rho = (x - x_l) / (x_h - x_l)
+        rho_last = rho[:, -1]
+        succeed = np.where(rho_last > 1/2)[0]
+        x_h_file = des + 'x_h.csv'
+        if os.path.exists(x_h_file):
+            x_h_old = np.array(pd.read_csv(x_h_file, header=None).iloc[0, 0])
+            x_h = np.mean([x_h_old, x_h])
+        pd.DataFrame(np.ones((1,1)) * x_h).to_csv(x_h_file, index=False, header=False)
+        for i in succeed:
+            tau[i] = dt * next(x for x, y in enumerate(rho[i]) if y > 1/2)
+        rho_df = pd.DataFrame(rho)
+        rho_df.to_csv(des +  'rho.csv', mode='a', index=False, header=False)
+    tau_df = pd.DataFrame(tau.reshape(realization_num, 1))
     tau_df.to_csv(des +  'lifetime.csv', mode='a', index=False, header=False)
     return None
 
@@ -448,7 +456,7 @@ def P_from_data(des, bins, label, title, log):
     """
 
     tau_file = des + 'lifetime.csv'
-    tau = np.array(pd.read_csv(tau_file).iloc[:,: ])
+    tau = np.array(pd.read_csv(tau_file, header=None).iloc[:,: ])
     num = np.zeros(np.size(bins))
     for i in range(np.size(bins)):
         num[i] = np.sum(tau<bins[i])
@@ -480,7 +488,7 @@ def rho_from_data(des, plot_num, t, label, title, log, ave):
     """
 
     rho_file = des + 'rho.csv'
-    rho = np.array(pd.read_csv(rho_file).iloc[:plot_num, :])
+    rho = np.array(pd.read_csv(rho_file, header=None).iloc[:plot_num, :])
     rho_plot = np.transpose(rho)
     if ave == 1:
         rho_plot = np.mean(rho_plot, -1)
@@ -514,7 +522,13 @@ def heatmap(des, realization_index, N, plot_range, plot_interval, dt, linewidth=
     des_file = des + 'realization' + str(realization_index) + '.h5'
     data = np.array(pd.read_hdf(des_file))
     xmin = np.mean(data[0])
-    xmax = np.mean(data[-1])
+    if np.sum(data[-1] < K) == 0:
+        xmax = np.mean(data[-1])
+    elif np.sum(data[-1] > K ) == 0:
+        print('No transition')
+        return None
+    else:
+        xmax = np.mean(data[-1, data[-1] > K])
     rho = (data - xmin) / (xmax - xmin)
     for i in np.arange(0, plot_range, plot_interval):
         data_snap = rho[int(i/dt)].reshape(int(np.sqrt(N)), int(np.sqrt(N)))
