@@ -10,17 +10,17 @@ import multiprocessing as mp
 
 N_set = [100, 400, 900, 1600, 2500]
 sigma_set = [0.2, 0.3, 0.4, 0.5]
-sigma_set = [0.05, 0.06, 0.07]
-N_set = [25, 100, 400]
-parallel = 100
+sigma_set = [4]
+N_set = [6400]
+parallel = 10
 degree = 4
 beta_fix = 4
 cpu_number = 4
-T_every = 2000
+T_every = 100
 T_num = 1
 T = T_every * T_num
 dt = 0.01
-repeat = 8
+repeat = 1
 
 def check_exist_index(des):
     """TODO: Docstring for check_exist_index.
@@ -86,7 +86,7 @@ def system_parallel(A, degree, strength, T_num, T_every, dt, parallel, cpu_numbe
                 system_collect(i + exist_index, N, index, degree, A_interaction, strength, x_start, t, dt, des)
     return None
 
-def generate_save_data(N_set, sigma_set, degree, T, beta_fix):
+def generate_save_delete_data(N_set, sigma_set, degree, T, beta_fix, remove_or_not = 1, strong_noise=0):
     """ generate data from 'realization_end+1', save and remove data, to get lifetime and rho
 
     :N_set: a set of N
@@ -117,12 +117,16 @@ def generate_save_data(N_set, sigma_set, degree, T, beta_fix):
             t1 = time.time()
             realization_start, realization_end = file_operation.file_range(des)
             realization_range = [realization_start, realization_end]
-            main.rho_lifetime_saving(realization_range, length, des, T, dt)
-            for i in range(realization_start, realization_end):
-                os.remove(des + f'realization{i}.h5')
+            main.rho_lifetime_saving(realization_range, length, des, T, dt, strong_noise)
             t2 = time.time()
             print('save data:', N, sigma, realization_range, t2 -t1)
+
+            if remove_or_not == 1:
+
+                for i in range(realization_start, realization_end):
+                    os.remove(des + f'realization{i}.h5')
     return None
 
+
 for i in range(repeat):
-    generate_save_data(N_set, sigma_set, degree, T, beta_fix)
+    generate_save_delete_data(N_set, sigma_set, degree, T, beta_fix, 1, 1)

@@ -10,9 +10,9 @@ def tau_ave_realization(des, bins):
     :returns: TODO
 
     """
-    rho = np.array(pd.read_csv(des + 'rho.csv').iloc[:,: ])
-    lifetime = np.array(pd.read_csv(des + 'lifetime.csv').iloc[:,: ])
-    if np.sum(rho[:, -1] < 1/2 ) < 2:
+    rho_last = np.array(pd.read_csv(des + 'rho.csv', header=None).iloc[:, -1])
+    lifetime = np.array(pd.read_csv(des + 'lifetime.csv', header=None).iloc[:,: ])
+    if np.sum(rho_last < 1/2 )/np.sum(rho_last) < 1e-3:
         tau = np.mean(lifetime)
         return tau
     else:
@@ -29,9 +29,8 @@ def tau_ave_realization(des, bins):
 
         z = np.polyfit(bins[start:end], np.log(1-p[start:end]), 1)
 
-        rho = start - 1/z[0]
-
-        return rho
+        tau = start - 1/z[0]
+    return tau
 
 def tau_from_rho(des):
     """TODO: Docstring for tau_from_rho.
@@ -56,26 +55,24 @@ N_set = [9, 16, 25, 36, 49, 64, 81, 100, 400, 900, 1600, 2500, 3600, 4900, 6400,
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 10000]
 sigma_set =[0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4]
 sigma_set = [ 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-sigma_set = [ 0.1, 0.2, 0.3, 0.4]
-sigma_set = [0.08, 0.09, 0.1, 0.2, 0.3, 0.4]
+sigma_set = [0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5]
 N_set = [25, 100, 400]
-
+T_set = [100]  * 7
 tau_ave1 = np.zeros((np.size(sigma_set), np.size(N_set)))
 tau_ave2 = np.zeros((np.size(sigma_set), np.size(N_set)))
-T = 100
 dt = 0.01
-t = np.arange(0, T, dt)
-bins = np.arange(0, T, 1)
 for i in range(np.size(N_set)):
-    for j in range(np.size(sigma_set)):
+    for j, sigma, T in zip(np.arange(np.size(sigma_set)), sigma_set, T_set):
+        t = np.arange(0, T, dt)
+        bins = np.arange(0, T, 1)
 
-        des = '../data/grid' + str(degree) + '/size' + str(N_set[i]) + '/beta' + str(beta_fix) + '/strength=' + str(sigma_set[j]) + '_T=' + str(T) + '/'
+        des = '../data/grid' + str(degree) + '/size' + str(N_set[i]) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '_T=' + str(T) + '/'
         tau_ave1[j, i] = tau_ave_realization(des, bins)
         # tau_ave2[j, i] = tau_from_rho(des)
     plt.loglog(sigma_set, tau_ave1[:, i], '*--', label=f'N={N_set[i]}')
 
 plt.xlabel('noise $\\sigma$', fontsize=fs)
-plt.ylabel('lifetime $<\\tau>$', fontsize=fs)
+plt.ylabel('lifetime $\\langle \\tau \\rangle$', fontsize=fs)
 plt.legend()
 plt.title(f'$\\beta=${beta_fix}',fontsize=fs)
 plt.show()

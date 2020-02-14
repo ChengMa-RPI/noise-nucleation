@@ -2,6 +2,8 @@ import os
 import numpy as np
 import ast
 import shutil
+import pandas as pd
+import csv
 
 def search_dir(des):
     sub_dir = []
@@ -96,6 +98,23 @@ def file_range(des):
         return None
     else:
         return realization_start, realization_end 
+
+def csv_convert_h5(des, T):
+    """TODO: Docstring for csv_convert_h5.
+
+    :filename: TODO
+    :returns: TODO
+
+    """
+    t_size = T*100
+    with open(des+'rho.csv') as f:
+        f_csv = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC) # header=None, so don't need to next(f_csv)
+        for row in f_csv:
+            data = pd.DataFrame(row)
+            data.to_hdf(des +'rho.h5', key='data', mode='a', append=True)
+
+
+
 '''
 degree = 4
 beta_fix = 4

@@ -8,9 +8,9 @@ import seaborn as sns
 
 N = 6400
 beta_fix = 4
-sigma = 0.2
-T = 30
-plot_interval = 0.2
+sigma = 4
+T = 100
+plot_interval = 0.1
 
 plot_range = 20
 duration = 0.3

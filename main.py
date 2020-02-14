@@ -405,8 +405,8 @@ def system_parallel(A, degree, strength, T, dt, parallel, cpu_number, des, exist
             system_collect(i + exist_index, N, index, degree, A_interaction, strength, xs_low, t, dt, des)
     return None
 
-def rho_lifetime_saving(realization_range, length, des, T, dt):
-    """from given range of realization files [realization_start +1 to realization_end], find rho which is normalized average evolution, and lifetime which is the time when rho exceeds 1/2, and also save x_h data.
+def rho_lifetime_saving(realization_range, length, des, T, dt, strong_noise):
+    """for given range of realization files [realization_start +1 to realization_end], find rho which is normalized average evolution, and lifetime which is the time when rho exceeds 1/2, and also save x_h data.
 
     :realization_range: read files from realization_range[0] + 1 to realization_range[1] 
     :length: length of time
@@ -423,7 +423,10 @@ def rho_lifetime_saving(realization_range, length, des, T, dt):
         des_file = des + 'realization' + str(i+realization_range[0]+1) + '.h5'
         data = np.array(pd.read_hdf(des_file))
         x[i] = np.mean(data, -1)
-        if np.sum(data[-1] < K) == 0:
+        if strong_noise == 0:
+            if np.sum(data[-1] < K) == 0:
+                y.append(x[i, -1])
+        else:
             y.append(x[i, -1])
     x_l = np.mean(x[:, 0])
     if np.size(y) != 0:
