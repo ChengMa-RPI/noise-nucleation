@@ -10,14 +10,14 @@ import multiprocessing as mp
 
 N_set = [100, 400, 900, 1600, 2500]
 sigma_set = [0.2, 0.3, 0.4, 0.5]
-sigma_set = [0.07]
+sigma_set = [0.05]
 N_set = [100]
-parallel_index_initial = np.arange(10)  
+parallel_index_initial = np.arange(100)  
 degree = 4
 beta_fix = 4
 cpu_number = 4
 T_start = 0
-T_end = 1000
+T_end = 200000
 T_every = 100
 dt = 0.01
 repeat = 0
@@ -144,7 +144,7 @@ def generate_save_delete_data(N_set, sigma_set, degree, T, beta_fix, remove_or_n
                     os.remove(des + f'realization{i}.h5')
     return None
 
-def generate_save_section(N_set, sigma_set, degree, T_start, T_end, beta_fix, parallel_index_initial):
+def generate_save_section(N, sigma, degree, T_start, T_end, beta_fix, parallel_index_initial):
     """ generate data from 'realization_end+1', save and remove data, to get lifetime and rho
 
     :N_set: a set of N
@@ -156,23 +156,25 @@ def generate_save_section(N_set, sigma_set, degree, T_start, T_end, beta_fix, pa
 
     """
 
-    for N in N_set:
-        for sigma in sigma_set:
-            des = '../data/grid' + str(degree) + '/' + 'size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '/'
-            if T_start == 0:
-                parallel_index = parallel_index_initial
-            else:
-                _, parallel_index = transition_index(des, parallel_index_initial)
-            num_col = int(np.sqrt(N))
-            A = main.network_ensemble_grid(N, num_col, degree, beta_fix)
-            t1 =time.time()
-            system_parallel(A, degree, sigma, T_start, T_end, dt, parallel_index, cpu_number, des)
-            t2 =time.time()
-            print('generate data:', N, sigma, T_start, T_end, parallel_index, t2 -t1)
+    des = '../data/grid' + str(degree) + '/' + 'size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '/'
+    if T_start == 0:
+        parallel_index = parallel_index_initial
+    else:
+        _, parallel_index = transition_index(des, parallel_index_initial)
+    if len(parallel_index) != 0:
 
-    return None
+        num_col = int(np.sqrt(N))
+        A = main.network_ensemble_grid(N, num_col, degree, beta_fix)
+        t1 =time.time()
+        system_parallel(A, degree, sigma, T_start, T_end, dt, parallel_index, cpu_number, des)
+        t2 =time.time()
+        print('generate data:', N, sigma, T_start, T_end, parallel_index, t2 -t1)
+        return 1
+    else:
+        return 0
 
-def  T_continue(T_start, T_end, T_every, parallel_index_initial):
+
+def  T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial):
     """TODO: Docstring for T_continue.
 
     :T_start: TODO
@@ -181,11 +183,18 @@ def  T_continue(T_start, T_end, T_every, parallel_index_initial):
     :returns: TODO
 
     """
+
     section = int((T_end - T_start) / T_every)
-    for i in range(section):
-        t_start = T_start + i * T_every
-        t_end = T_start + (i+1) * T_every
-        generate_save_section(N_set, sigma_set, degree, t_start, t_end, beta_fix, parallel_index_initial) 
+    for N in N_set:
+        for sigma in sigma_set:
+            for i in range(section):
+                t_start = T_start + i * T_every
+                t_end = T_start + (i+1) * T_every
+                outcome = generate_save_section(N, sigma, degree, t_start, t_end, beta_fix, parallel_index_initial) 
+                if outcome == 0:
+                    break
+    return None
+
 
 def transition_index(des, parallel_index_initial):
     """TODO: Docstring for transition_index.
@@ -255,8 +264,8 @@ def cal_rho_lifetime(des, T_start, T_end, T_every, dt, parallel_index):
 for i in range(repeat):
     generate_save_delete_data(N_set, sigma_set, degree, T, beta_fix, 1, 1)
 
-T_continue(T_start, T_end, T_every, parallel_index_initial)
+T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial)
 
 des = '../data/grid' + str(degree) + '/' + 'size' + str(N_set[0]) + '/beta' + str(beta_fix) + '/strength=' + str(sigma_set[0]) + '/'
-cal_rho_lifetime(des, T_start, T_end, T_every, dt, parallel_index_initial)
+# cal_rho_lifetime(des, T_start, T_end, T_every, dt, parallel_index_initial)
 
