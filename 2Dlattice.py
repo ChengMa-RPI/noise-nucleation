@@ -12,7 +12,7 @@ N_set = [100, 400, 900, 1600, 2500]
 sigma_set = [0.2, 0.3, 0.4, 0.5]
 sigma_set = [0.07]
 N_set = [100]
-parallel_index_initial = np.arange(10)  + 10
+parallel_index_initial = np.arange(10)  
 degree = 4
 beta_fix = 4
 cpu_number = 4
@@ -49,10 +49,13 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
     dyn_all = main.sdesolver(main.close(main.mutual_lattice, *(N, index, degree, A_interaction)), x_initial, t, dW = noise)
     evolution_file = des_evolution + f'realization{store_index}_T_{T_start}_{T_end}'
     np.save(evolution_file, dyn_all)
-    ave_file = des_ave + f'realization{store_index}_T_{T_start}_{T_end}'
-    np.save(ave_file, np.mean(dyn_all, -1))
-    x_high = pd.DataFrame(np.ones((1, 1)) * np.mean(dyn_all[-1]))
-    x_high.to_csv(des_high + f'realization{store_index}.csv', mode='a', index=False, header=False)
+    x_high = np.mean(dyn_all[-1])
+    x_high_df = pd.DataFrame(np.ones((1, 1)) * x_high)
+    x_high_df.to_csv(des_high + f'realization{store_index}.csv', mode='a', index=False, header=False)
+    if x_high > main.K:
+
+        ave_file = des_ave + f'realization{store_index}_T_{T_start}_{T_end}'
+        np.save(ave_file, np.mean(dyn_all, -1))
 
     return None
 
@@ -234,15 +237,12 @@ def cal_rho_lifetime(des, T_start, T_end, T_every, dt, parallel_index):
         t_start = T_start 
         t_end = T_start + T_every 
         ave_file = des_ave + f'realization{realization}_T_{t_start}_{t_end}.npy'
-        while os.path.exists(ave_file):
+        while not os.path.exists(ave_file):
 
             t_start += T_every
             t_end += T_every
             ave_file = des_ave + f'realization{realization}_T_{t_start}_{t_end}.npy'
 
-        t_start = t_start - T_every
-        t_end = t_end - T_every
-        ave_file = des_ave + f'realization{realization}_T_{t_start}_{t_end}.npy'
         dyn_ave = np.load(ave_file)
         tau[realization] = dt * next(x for x, y in enumerate(dyn_ave) if y > criteria) + t_start
 
