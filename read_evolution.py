@@ -8,7 +8,7 @@ import seaborn as sns
 
 N = 6400
 beta_fix = 4
-sigma = 4
+sigma = 50
 T = 100
 plot_interval = 0.1
 
@@ -16,7 +16,7 @@ plot_range = 20
 duration = 0.3
 degree = 4
 dt = 0.01
-realization_index = 0
+realization_index = 99
 
 des = '../data/grid' + str(degree) + '/size' + str(N) + '/beta' + str(beta_fix) + '/strength=' + str(sigma) + '_T=' + str(T) + '/'
 

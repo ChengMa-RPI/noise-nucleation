@@ -91,7 +91,7 @@ def stable_state(A, degree):
 
     :A: Adjacency matrix
     :degree: degree of lattice 
-    :returns: stable states
+    :returns: stable states for all nodes x_l, x_h
 
     """
     t = np.arange(0, 5000, 0.01)
