@@ -1,5 +1,4 @@
 import main
-import file_operation
 import numpy as np 
 from scipy.integrate import odeint 
 import matplotlib.pyplot as plt
@@ -15,14 +14,14 @@ import file_operation
 import ast
 
 degree = 4
-cpu_number = 4
+cpu_number = 10
 dt = 0.01
 K = 10
 a = 0.5
 r = 1
 rv = 0.5
 hv = 0.2
-R = 0.2
+R = 0.001
 fs = 18
 B = 0.1
 C = 1
@@ -94,7 +93,7 @@ def harvest_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     :returns: derivative of x 
 
     """
-    r, K = arguments
+    r, K, R = arguments
     x[np.where(x<0)] = 0  # Negative x is forbidden
     x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
@@ -126,7 +125,7 @@ def eutrophication_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     :returns: derivative of x 
 
     """
-    a, r = arguments
+    a, r, R = arguments
     x[np.where(x<0)] = 0  # Negative x is forbidden
     x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
@@ -158,7 +157,7 @@ def vegetation_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     :returns: derivative of x 
 
     """
-    r, rv, hv = arguments 
+    r, rv, hv, R = arguments 
     x[np.where(x<0)] = 0  # Negative x is forbidden
     x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
@@ -246,7 +245,7 @@ def check_exist_index(des):
     return exist_index
 
 def check_exist_T(des):
-    des_ave = des + 'ave/'
+    des_ave = des + 'evolution/'
     T = []
     for filename in os.listdir(des_ave):
         t = ast.literal_eval(filename[filename.rfind('_')+1:filename.find('.')])
@@ -313,8 +312,8 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
         p.close()
         p.join()
     else:
-        for i in parallel_index:
-            system_collect(realization, N, index, degree, A_interaction, strength, x_start, T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
+        for i, i_index in zip(range(parallel_size), parallel_index):
+            system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
     return None
 
 def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments, transition_to_high, low, high):
@@ -359,7 +358,10 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             x_initial = xs_high
         criteria = (xs_low_mean + xs_high_mean) / 2
         for sigma in sigma_set:
-            des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+            if R in arguments and arguments[-1] != 0.2:
+                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
+            else:
+                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
             if not os.path.exists(des):
                 os.makedirs(des)
 
@@ -370,7 +372,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                         print(T_start)
                 elif continue_evolution == 0:
                     print('simulation data already exists!')
-                    return None
+                    break
 
             for j in range(parallel_section):
                 parallel_index = parallel_index_initial[j*parallel_every: (j+1)*parallel_every]
@@ -448,9 +450,11 @@ def cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, de
         dyn_ave = np.load(ave_file)
         if transition_to_high == 1:
             criteria = (x_high + xs_low_mean) / 2
+            criteria = (xs_high_mean + xs_low_mean) / 2
             tau[realization] = dt * next(x for x, y in enumerate(dyn_ave) if y > criteria) + t_start
         elif transition_to_high == 0:
             criteria = (x_high + xs_high_mean) / 2
+            criteria = (xs_low_mean + xs_high_mean) / 2
             tau[realization] = dt * next(x for x, y in enumerate(dyn_ave) if y < criteria) + t_start
     tau_df = pd.DataFrame(tau.reshape((total_realiztion_num), 1))
     tau_df.to_csv(des +  'lifetime.csv', index=False, header=False)
@@ -544,7 +548,7 @@ def V_eff(c_set, x_set=np.arange(0,10, 0.01)):
 
 def example(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
 
-    t = np.arange(0, 100, 0.01)
+    t = np.arange(0, 1000, 0.01)
     num_col = int(np.sqrt(N))
     A = network_ensemble_grid(9, 3)
     xs_l, xs_h = stable_state(A, degree, dynamics, c, low, high, arguments) 
@@ -555,7 +559,7 @@ def example(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
         x_initial = np.mean(xs_h) * np.ones(N)
     index = np.where(A!=0)
     A_interaction = A[index].reshape(N, degree)
-    local_state = np.random.RandomState(1 ) # avoid same random process.
+    local_state = np.random.RandomState(1) # avoid same random process.
     noise= local_state.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * sigma
     dyn = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
     #plt.plot(t, np.mean(dyn, -1))
@@ -567,33 +571,32 @@ def example(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
     return np.mean(dyn, -1), xs_l, xs_h
 
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice]
-arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv)]
 parallel_index_initial = np.arange(1000) 
 trial_low = 0.1
 trial_high = 10
-
-c_all_set = [4, 2.6, 6, 3]
-transition_to_high = 1
-index_set = [2]
-continue_evolution = 0
-parallel_every = 20
-T_start = 0
-T_end = 5000
-T_every = 100
-sigma_set = [0.019, 0.018, 0.017, 0.016]
-N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
-N_set = [9, 100, 900, 2500]
-
 dynamics_set = []
-c_set = []
 arguments_set = []
+N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
+T_every = 100
+
+continue_evolution = 0
+parallel_every = 100
+T_start = 0
+T_end = 2000
+transition_to_high_set = [1]
+index_set = [2]
+c_set = [6]
+sigma_set_all = [[0.02]]
+N_set = [9, 16, 25, 36, 49, 64, 81, 100]
+R_set = [0.12, 0.14, 0.16, 0.18, 0.3, 0.5]
+arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv)]
 for index in index_set:
     dynamics_set = dynamics_set + [dynamics_all_set[index]]
-    c_set = c_set + [c_all_set[index]]
     arguments_set = arguments_set + [arguments_all_set[index]]
 t1 = time.time()
-for dynamics, c, arguments in zip(dynamics_set, c_set, arguments_set):
-    T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments, transition_to_high, trial_low, trial_high)
+for R in R_set:
+    for dynamics, c, arguments, sigma_set, transition_to_high in zip(dynamics_set, c_set, arguments_set, sigma_set_all, transition_to_high_set):
+        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high)
 t2 = time.time()
 print(t2 -t1)
 '''
