@@ -14,7 +14,7 @@ import file_operation
 import ast
 
 degree = 4
-cpu_number = 10
+cpu_number = 4
 dt = 0.01
 K = 10
 a = 0.5
@@ -29,6 +29,11 @@ K_mutual = 5
 D = 5 
 E = 0.9
 H = 0.1
+A1 = 0.1
+A2 = 1
+x1 = 1
+x2 = 1.2
+x3 = 5
 remove = 1
 
 def mutual_1D(x, t, c, arguments):
@@ -66,7 +71,6 @@ def mutual_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
     dxdt = B + x * (1 - x/K) * ( x/C - 1) + c/4 * x * np.sum(A_interaction * x_j / (D + E * x.reshape(N, 1) + H * x_j), -1)
     return dxdt
-
 
 def harvest_1D(x, t, c, arguments):
     """original dynamics N species interaction.
@@ -164,6 +168,53 @@ def vegetation_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     dxdt = rv * x * (1 - x * (r**4 + (hv * c / (hv + x))**4)/r**4) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
     return dxdt
 
+def cubic_1D(x, t, c, arguments):
+    """original dynamics N species interaction.
+
+    :x: N dynamic variables, 1 * N vector 
+    :t: time 
+    :c: bifurcation parameter 
+    :returns: derivative of x 
+
+    """
+    x1, x2, x3 = arguments 
+    dxdt = -c * (x - x1) * (x - x2) * (x - x3)
+    return dxdt
+
+def quadratic_1D(x, t, c, arguments):
+    """original dynamics N species interaction.
+
+    :x: N dynamic variables, 1 * N vector 
+    :t: time 
+    :c: bifurcation parameter 
+    :returns: derivative of x 
+
+    """
+    x2 = c
+    A1, A2, x1, x3 = arguments 
+    dxdt = A1 * (x - x1) * (x - x2) * np.heaviside(x2 - x, 0) - A2 * (x - x2) * (x - x3) * np.heaviside(x - x2, 0)
+    return dxdt
+
+def quadratic_lattice(x, t, N, index, degree, A_interaction, c, arguments):
+    """original dynamics N species interaction.
+
+    :x: N dynamic variables, 1 * N vector 
+    :t: time 
+    :N: the number of interacting variables 
+    :index: the index of non-zero element of adjacency matrix A, N * N matrix 
+    :degree: the degree of lattice  
+    :A_interaction: non-zero element of adjacency matrix A, 1 * N vector
+    :returns: derivative of x 
+
+    """
+    x2 = c
+    A1, A2, x1, x3, R = arguments 
+    x[np.where(x<0)] = 0  # Negative x is forbidden
+    x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
+    x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
+    dxdt = A1 * (x - x1) * (x - x2) * np.heaviside(x2 - x, 0) - A2 * (x - x2) * (x - x3) * np.heaviside(x - x2, 0) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
+    return dxdt
+
 
 def stable_state(A, degree, dynamics, c, low, high, arguments):
     """calculate stables states for a given interaction matrix and dynamics-main.mutual
@@ -173,7 +224,7 @@ def stable_state(A, degree, dynamics, c, low, high, arguments):
     :returns: stable states for all nodes x_l, x_h
 
     """
-    t = np.arange(0, 5000, 0.01)
+    t = np.arange(0, 10000, 0.01)
     N = np.size(A, -1)
     index = np.where(A!=0)
     A_interaction = A[index].reshape(N, degree)
@@ -256,9 +307,13 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
     """one realization to run sdeint and save dynamics
 
     """
-    local_state = np.random.RandomState(store_index + T_start) # avoid same random process.
+    local_state = np.random.RandomState(store_index + T_start * int(parallel_size_all/T_every) ) # avoid same random process.
     noise= local_state.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * strength
-    dyn_all = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
+    if N == 1:
+        dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_1D']
+        dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments[:-1])), x_initial, t, dW = noise.reshape(np.size(noise), 1))
+    else:
+        dyn_all = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
     evolution_file = des_evolution + f'realization{store_index}_T_{T_start}_{T_end}'
     x_high = np.mean(dyn_all[-1])
     x_high_df = pd.DataFrame(np.ones((1, 1)) * x_high)
@@ -287,8 +342,12 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
     """
     parallel_size = np.size(parallel_index)
     N = np.size(A, -1)
-    index = np.where(A!=0)
-    A_interaction = A[index].reshape(N, degree)
+    if N == 1:
+        index = []
+        A_interaction = []
+    else:
+        index = np.where(A!=0)
+        A_interaction = A[index].reshape(N, degree)
     t = np.linspace(T_start, T_end, int((T_end-T_start)/dt + 1))
     des_evolution = des + 'evolution/'
     des_ave = des + 'ave/'
@@ -305,7 +364,6 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
             evolution_file = des_evolution + f'realization{realization}_T_{2*T_start-T_end}_{T_start}.npy'
             x_start[i] = np.load(evolution_file)[-1]
             os.remove(evolution_file)
-
     if cpu_number > 0:
         p = mp.Pool(cpu_number)
         p.starmap_async(system_collect, [(realization, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove) for realization, i in zip(parallel_index, range(parallel_size))]).get()
@@ -358,10 +416,15 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             x_initial = xs_high
         criteria = (xs_low_mean + xs_high_mean) / 2
         for sigma in sigma_set:
-            if R in arguments and arguments[-1] != 0.2:
-                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
-            else:
+            if dynamics == mutual_lattice:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+            elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
+                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
+            elif dynamics != quadratic_lattice and arguments == 0.2:
+                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+            elif dynamics == quadratic_lattice:
+                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/x2=' + str(c) + '/strength=' + str(sigma) + '/' + f'A1={arguments[0]}_A2={arguments[1]}_R={arguments[-1]}/'
+
             if not os.path.exists(des):
                 os.makedirs(des)
 
@@ -385,7 +448,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                         t1 =time.time()
                         system_parallel(A, degree, sigma, t_start, t_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove)
                         t2 =time.time()
-                        print('generate data:', dynamics.__name__, N, sigma, t_start, t_end, parallel_index, t2 -t1)
+                        print('generate data:', dynamics.__name__, N, sigma, arguments[-1], t_start, t_end, parallel_index, t2 -t1)
                     else:
                         break
             cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, degree, dynamics, c, trial_low, trial_high, arguments)
@@ -531,11 +594,11 @@ def heatmap(des, realization_index, N, plot_range, plot_interval, dt, linewidth=
         plt.close()
     return None
 
-def V_eff(c_set, x_set=np.arange(0,10, 0.01)):
+def V_eff(dynamics, c_set, arguments, x_set=np.arange(0,10, 0.01)):
     for c in c_set:
         V_set = []
         for x1 in x_set:
-            V, error = sin.quad(f, 0, x1, args=(c,))
+            V, error = sin.quad(dynamics, x_set[0], x1, args=(0, c, arguments))
             V_set = np.append(V_set, -V)
         plt.plot(x_set[: :], V_set[: :], label='$c=$' + str(round(c, 2)))
         plt.xlabel('$x$', fontsize=fs)
@@ -548,13 +611,13 @@ def V_eff(c_set, x_set=np.arange(0,10, 0.01)):
 
 def example(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
 
-    t = np.arange(0, 1000, 0.01)
+    t = np.arange(0, 10000, 0.01)
     num_col = int(np.sqrt(N))
     A = network_ensemble_grid(9, 3)
     xs_l, xs_h = stable_state(A, degree, dynamics, c, low, high, arguments) 
     A = network_ensemble_grid(N, num_col)
     if transition_to_high == 1:
-        x_initial = np.mean(xs_l) * np.ones(N)
+        x_initial = np.mean(xs_l) * np.ones(N) 
     else:
         x_initial = np.mean(xs_h) * np.ones(N)
     index = np.where(A!=0)
@@ -567,11 +630,12 @@ def example(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
     plt.xlabel('t', fontsize=fs)
     plt.ylabel('x', fontsize=fs)
     plt.title(f'$c=${c}_$N=${N}_$\\sigma=${sigma}', fontsize=fs)
-    # plt.show()
-    return np.mean(dyn, -1), xs_l, xs_h
+    plt.show()
+    # return dyn, xs_l, xs_h
 
-dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice]
-parallel_index_initial = np.arange(1000) 
+parallel_size_all = 1000
+dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
+parallel_index_initial = np.arange(parallel_size_all)
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -582,14 +646,16 @@ T_every = 100
 continue_evolution = 0
 parallel_every = 100
 T_start = 0
-T_end = 2000
+T_end = 5000
 transition_to_high_set = [1]
 index_set = [2]
-c_set = [6]
-sigma_set_all = [[0.02]]
-N_set = [9, 16, 25, 36, 49, 64, 81, 100]
-R_set = [0.12, 0.14, 0.16, 0.18, 0.3, 0.5]
-arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv)]
+c_set = [6.355]
+sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
+sigma_set_all = [[0.000005]]
+N_set = [1]
+R_set = [0]
+
+arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
 for index in index_set:
     dynamics_set = dynamics_set + [dynamics_all_set[index]]
     arguments_set = arguments_set + [arguments_all_set[index]]
