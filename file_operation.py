@@ -15,14 +15,13 @@ def search_dir(des):
         des_sub.append(des + i + '/')
     return des_sub
 
-def all_dir(degree):
+def all_dir(des):
     """list all folder any level of '../data/gridi{degree}/'
 
     :degree: fold name
     :returns: all folders 
 
     """
-    des = f'../data/grid{degree}/'
     des_sub = search_dir(des)
     des_subsubsub = []
     for i in des_sub:
@@ -40,39 +39,6 @@ def extract_info(des):
 
     return evalulate
 
-def rm_rho_lifetime(degree):
-    """TODO: Docstring for rm_rho_lifetime.
-
-    :degree: TODO
-    :returns: TODO
-
-    """
-    des_subsubsub = all_dir(degree)
-    for i in des_subsubsub:
-        filename_set = ['lifetime.csv', 'rho.csv']
-        # filename_set = ['heatmap']
-        for j in filename_set:
-            filename = i + j
-            if os.path.exists(filename):
-                os.remove(filename)
-                # shutil.rmtree(filename)
-
-def rm_data(des, file_type, realization):
-    """TODO: Docstring for rm_evolution_data.
-
-    :des: TODO
-    :file_type: TODO
-    :realization: TODO
-    :returns: TODO
-
-    """
-    if file_type == 'realization':
-        for i in range(realization):
-            os.remove(des + file_type + f'{i}.h5')
-    elif file_type == 'rho' or 'lifetime':
-        os.remove(des + file_type + '.csv')
-
-    return None
 
 def file_range(des):
     """find file 'realization.h5' range
@@ -115,17 +81,34 @@ def csv_convert_h5(des, T):
 
 
 
-'''
+
+def remove_dir(path):
+    """remove directory
+
+    :des: TODO
+    :returns: TODO
+
+    """
+    if os.path.isfile(path):
+        os.remove(path)  # remove the file
+    elif os.path.isdir(path):
+        shutil.rmtree(path)
+
 degree = 4
 beta_fix = 4
-N_set = [25, 100, 400]
-sigma_set = [0.1]
-T = 100
-
-file_type = 'lifetime'
-realization = 100
+N_set = [9]
+sigma_set = [0.055]
+R_set = [0.2]
+c_set = [4, 1.8, 6, 2.7]
+dynamics_set = ['mutual', 'harvest', 'eutrophication', 'vegetation']
+index = 0
+c = c_set[index]
+dynamics = dynamics_set[index]
 for N in N_set:
     for sigma in sigma_set:
-        des = f'../data/grid{degree}/size{N}/beta{beta_fix}/strength={sigma}_T={T}/'
-        rm_data(des,file_type, realization)
-'''
+        for R in R_set:
+            if R == 0.2:
+                des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}/'
+            else:
+                des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}_R{R}/'
+            remove_dir(des)
