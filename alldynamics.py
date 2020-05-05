@@ -13,6 +13,7 @@ import seaborn as sns
 import ast
 import sympy as sp
 from scipy.interpolate import interp1d
+import shutil
 
 degree = 4
 cpu_number = 10
@@ -36,6 +37,7 @@ x1 = 1
 x2 = 1.2
 x3 = 5
 remove = 1
+del_evo = 0
 
 def xj_xi(c, arguments, dxj):
     B, C, D, E, H, K = arguments
@@ -509,7 +511,7 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
             system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
     return None
 
-def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments, transition_to_high, low, high):
+def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high):
     """TODO: Docstring for T_continue.
 
     :T_start: TODO
@@ -589,6 +591,9 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                     else:
                         break
             cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, degree, dynamics, c, trial_low, trial_high, arguments)
+            if del_evo == 1:
+                shutil.rmtree(des+ 'evolution/')
+
 
     return None
 
@@ -965,9 +970,39 @@ def compare(dynamics, dynamics_ij, dynamics_beta, c, arguments, N, sigma, low, h
     plt.show()
     return index, dyn, xs_l, xs_h
 
-parallel_size_all = 1
+def tg_from_one_transition(dynamics, c, arguments, N, sigma, low, high, transition_to_high):
+    """TODO: Docstring for tg_from_one_transition.
+
+    :N: TODO
+    :sigma: TODO
+    :returns: TODO
+
+    """
+    t = np.arange(0, 100, 0.01)
+    num_col = int(np.sqrt(N))
+    A = network_ensemble_grid(9, 3)
+    xs_l, xs_h = stable_state(A, degree, dynamics, c, low, high, arguments) 
+    A = network_ensemble_grid(N, num_col)
+    if transition_to_high == 1:
+        x_initial = np.mean(xs_l) * np.ones(N) 
+    else:
+        x_initial = np.mean(xs_h) * np.ones(N)
+    x_half = (np.mean(xs_l) + np.mean(xs_h))/2
+    x_initial[0] = x_half
+    index = np.where(A!=0)
+    A_interaction = A[ndex].reshape(N, degree)
+    local_state = np.random.RandomState(5) # avoid same random process.
+    noise= np.random.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * sigma
+    dyn = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
+    rho = np.mean(dyn, -1)
+    tg = next(x for x, y in enumerate(rho) if y > x_half) * 0.01
+    return tg
+    
+
+
+parallel_size_all = 4000
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all) 
+parallel_index_initial = np.arange(parallel_size_all)
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -976,18 +1011,18 @@ N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
 T_every = 100
 
 continue_evolution = 0
-parallel_every = 1
+parallel_every = 1000
 T_start = 0
-T_end = 1000
+T_end = 6000
 transition_to_high_set = [1]
 index_set = [0]
 c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.065]]
+sigma_set_all = [[0.067, 0.69]]
 N_set = [9, 100, 900, 2500]
 N_set = [10000]
-N_set = [9]
-R_set = [0.02]
+N_set = [2]
+R_set = [0.2]
 
 arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
 for index in index_set:
@@ -996,7 +1031,7 @@ for index in index_set:
 t1 = time.time()
 for R in R_set:
     for dynamics, c, arguments, sigma_set, transition_to_high in zip(dynamics_set, c_set, arguments_set, sigma_set_all, transition_to_high_set):
-        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high)
+        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high)
 t2 = time.time()
 print(t2 -t1)
 '''

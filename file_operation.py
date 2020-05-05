@@ -80,8 +80,6 @@ def csv_convert_h5(des, T):
             data.to_hdf(des +'rho.h5', key='data', mode='a', append=True)
 
 
-
-
 def remove_dir(path):
     """remove directory
 
@@ -94,21 +92,32 @@ def remove_dir(path):
     elif os.path.isdir(path):
         shutil.rmtree(path)
 
+def clear_file(N_set, sigma_set, R_set, des_type, realization):
+    for N in N_set:
+        for sigma in sigma_set:
+            for R in R_set:
+                if R == 0.2:
+                    des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}/'
+                else:
+                    des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}_R{R}/'
+                des_file = os.listdir(des+des_type)
+                for filename in des_file:
+                    realization_num = ast.literal_eval(filename[filename.find('realization') + len('realization'): filename.find('_')])
+                    if realization_num in realization:
+                        #remove_dir(filename)
+                        print(realization_num)
+
 degree = 4
 beta_fix = 4
-N_set = [9]
-sigma_set = [0.055]
-R_set = [0.2]
 c_set = [4, 1.8, 6, 2.7]
 dynamics_set = ['mutual', 'harvest', 'eutrophication', 'vegetation']
 index = 0
 c = c_set[index]
 dynamics = dynamics_set[index]
-for N in N_set:
-    for sigma in sigma_set:
-        for R in R_set:
-            if R == 0.2:
-                des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}/'
-            else:
-                des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}_R{R}/'
-            remove_dir(des)
+N_set = [9]
+sigma_set = [0.07]
+R_set = [0.2]
+des_type = 'evolution/'
+realization = np.arange(1000) + 4000
+
+clear_file(N_set, sigma_set, R_set, des_type, realization)
