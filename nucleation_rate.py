@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
 import os 
+import time 
 import multiprocessing as mp
-import time
     
 
 def convert_index(index, N):
@@ -106,7 +106,7 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, 
     number_nucleation = np.hstack((cluster_set[0], np.diff(cluster_set)))
     return t, cluster_set, number_l_set, number_nucleation
 
-def nucleation_parallel(arg1):
+def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for nucleation_parallel.
 
     :arg1: TODO
@@ -114,13 +114,13 @@ def nucleation_parallel(arg1):
 
     """
     p = mp.Pool(cpu_number)
+    t = np.arange(T_start, T_end, dt*interval)
     realization_num = np.size(realization)
-    number_l_set = np.zeros((realization_num, t_num))
-    cluster_set = np.zeros((realization_num, t_num))
-    nucleation_set = np.zeros((realization_num, t_num))
-    t, cluster_set[i], number_l_set[i], nucleation_set[i] =  p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, reali, interval) for reali, i in zip(realization, range(realization_num))]).get()
+    result =  p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, reali, interval, bound, T_start, T_end, dt) for reali, i in zip(realization, range(realization_num))]).get()
     p.close()
     p.join()
+    return t, result
+
 
 
 
