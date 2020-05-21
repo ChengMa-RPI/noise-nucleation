@@ -26,6 +26,8 @@ def connection_condition(index1, index2, N):
     :returns: TODO
 
     """
+    index1 = np.array(index1)
+    index2 = np.array(index2)
     row1, column1, total1 = convert_index(index1, N)
     row2, column2, total2 = convert_index(index2, N)
     row1 = row1.reshape(np.size(row1), 1)
@@ -33,7 +35,7 @@ def connection_condition(index1, index2, N):
     condition1 = (row1 - row2) * (column1 - column2)
     condition2 = abs(row1 - row2) + abs(column1 - column2)
     M = int(np.sqrt(N))
-    select = np.where((condition1 == 0) &((condition2-1)%(M-2) == 0 ))
+    select = np.where((condition1 == 0) &((condition2-1)%(M-2) == 0 ))[0]
     return select
 
 def cluster_division(cluster, index_before, index_after, index_add, N):
@@ -51,22 +53,18 @@ def cluster_division(cluster, index_before, index_after, index_add, N):
     index_rest = np.array(index_add)
     while np.size(index_rest):
         indicator = 0
-        len_set = [len(cluster[i]) for  i in range(len(cluster))]
-        len_cum = np.cumsum(len_set)
-        cluster_array = np.hstack(cluster)
-        select = connection_condition(index_rest, cluster_array, N)
-        if np.size(select):
-            for select_append, index_flat in zip(index_rest[select[0]], select[1]):
-                index = np.where([len_cum > index_flat])[0][0]
-
-                cluster[index].append(select_append)
-            index_rest = np.setdiff1d(index_rest, index_rest[select[0]])
-            indicator = 1
-        else:
+        for j in cluster:
+            select = connection_condition(index_rest, j, N)
+            if np.size(select):
+                for select_append in index_rest[select]:
+                    j.append(select_append)
+                index_rest = np.setdiff1d(index_rest, index_rest[select])
+                indicator = 1
+        if indicator == 0:
             cluster.append([index_rest[0]])
             index_rest = np.setdiff1d(index_rest, index_rest[0])
-
     return cluster
+
 
 def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for nucleation.
@@ -120,6 +118,7 @@ def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bo
     p.close()
     p.join()
     return t, result
+
 
 
 
