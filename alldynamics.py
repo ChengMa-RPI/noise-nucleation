@@ -37,7 +37,7 @@ x1 = 1
 x2 = 1.2
 x3 = 5
 remove = 1
-del_evo = 0
+del_evo = 1
 
 def xj_xi(c, arguments, dxj):
     B, C, D, E, H, K = arguments
@@ -1000,9 +1000,9 @@ def tg_from_one_transition(dynamics, c, arguments, N, sigma, low, high, transiti
     
 
 
-parallel_size_all = 4000
+parallel_size_all = 1000
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)
+parallel_index_initial = np.arange(parallel_size_all)   + 1000
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -1013,16 +1013,16 @@ T_every = 100
 continue_evolution = 0
 parallel_every = 1000
 T_start = 0
-T_end = 6000
+T_end = 1000
 transition_to_high_set = [1]
-index_set = [0]
-c_set = [4]
+index_set = [2]
+c_set = [6]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.067, 0.69]]
-N_set = [9, 100, 900, 2500]
+sigma_set_all = [[0.04, 0.043, 0.045, 0.047]]
+N_set = [900, 2500]
 N_set = [10000]
-N_set = [2]
-R_set = [0.2]
+N_set = [100]
+R_set = [1]
 
 arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
 for index in index_set:

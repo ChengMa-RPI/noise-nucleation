@@ -132,6 +132,7 @@ degree = 4
 c = 4 
 N = 10000
 sigma = 0.1
+<<<<<<< Updated upstream
 realization = np.arange(1000) + 1000
 interval = 20
 bound = 0.2
@@ -152,4 +153,9 @@ data = np.vstack((t, cluster_set, number_l_set, nucleation_set))
 
 data_df = pd.DataFrame(data)
 data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/nucleation.csv', index=False, header=False)
+=======
+realization = 0
+interval = 100
+cpu_number = 10
+>>>>>>> Stashed changes
 
