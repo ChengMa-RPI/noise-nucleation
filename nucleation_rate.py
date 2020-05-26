@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import os 
 import time 
 import multiprocessing as mp
-    
 
 def convert_index(index, N):
     """Convert index into row index and column index
@@ -70,7 +69,7 @@ def cluster_division(cluster, index_before, index_after, index_add, N):
 
     return cluster
 
-def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, T_start=0, T_end=100, dt=0.01):
+def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt):
     """TODO: Docstring for nucleation.
 
     :dynamics: TODO
@@ -82,6 +81,7 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, 
     t_num = np.size(t)
     number_l_set = np.zeros((t_num))
     cluster_set = np.zeros((t_num))
+    low_ave = np.ones((t_num))
 
     des_evo = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/evolution/'
     evolution_file = des_evo + f'realization{realization}_T_{T_start}_{T_end}.npy'
@@ -95,8 +95,12 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, 
     cluster = []
     for i in range(t_num):
         h_index = np.where(rho[i] > bound)[0]
-        print(np.size(h_index))
         number_l_set[i] = N - np.size(h_index)
+        if number_l_set[i] > 0:
+            if i == 0:
+                low_ave[i] = np.mean(rho[i][rho[i]<bound])
+            else:
+                low_ave[i] = np.mean(rho[i-1][rho[i]<bound])
         if np.size(h_index)>0 and np.size(h_index)<N:
             index_after = h_index
             index_add = np.setdiff1d(index_after, index_before)
@@ -106,9 +110,9 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound=1/2, 
         elif np.size(h_index) == N:
             break
     number_nucleation = np.hstack((cluster_set[0], np.diff(cluster_set)))
-    return t, cluster_set, number_l_set, number_nucleation
+    return cluster_set, number_l_set, number_nucleation, low_ave
 
-def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound, T_start=0, T_end=100, dt=0.01):
+def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound, T_start=0, T_end=200, dt=0.01):
     """TODO: Docstring for nucleation_parallel.
 
     :arg1: TODO
@@ -125,17 +129,15 @@ def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bo
 
 
 
-
-
 dynamics = 'mutual'
 degree = 4
 c = 4 
 N = 10000
 sigma = 0.1
-<<<<<<< Updated upstream
+realization = [0]
 realization = np.arange(1000) + 1000
-interval = 20
-bound = 0.2
+interval = 100
+bound = 0.1
 cpu_number = 38
 
 t, result = nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound)
@@ -145,17 +147,12 @@ realization_num = np.size(realization)
 number_l_set = np.zeros((realization_num, t_num))
 cluster_set = np.zeros((realization_num, t_num))
 nucleation_set = np.zeros((realization_num, t_num))
+low_ave_set = np.zeros((realization_num, t_num))
 
 for i in range(np.size(realization)):
-    cluster_set[i], number_l_set[i], nucleation_set[i] = result[i]
+    cluster_set[i], number_l_set[i], nucleation_set[i], low_ave_set[i] = result[i]
 
-data = np.vstack((t, cluster_set, number_l_set, nucleation_set))
+data = np.vstack((t, cluster_set, number_l_set, nucleation_set, low_ave_set))
 
 data_df = pd.DataFrame(data)
 data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/nucleation.csv', index=False, header=False)
-=======
-realization = 0
-interval = 100
-cpu_number = 10
->>>>>>> Stashed changes
-
