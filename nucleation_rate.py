@@ -90,6 +90,8 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_st
     x_ave = np.mean(evolution_interval, 1)
     x_l = x_ave[0]
     x_h = x_ave[-1]
+    x_h < 1:
+        x_h = 6.964
     rho = (evolution_interval - x_l)/(x_h-x_l)  # global state
     index_before = []
     cluster = []
@@ -112,23 +114,27 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_st
     number_nucleation = np.hstack((cluster_set[0], np.diff(cluster_set)))
     return cluster_set, number_l_set, number_nucleation, low_ave
 
-def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound, T_start=0, T_end=200, dt=0.01):
+def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for nucleation_parallel.
 
     :arg1: TODO
     :returns: TODO
 
     """
-    p = mp.Pool(cpu_number)
     t = np.arange(T_start, T_end, dt*interval)
     parallel_section = int((parallel_index_initial[-1] + 1 - parallel_index_initial[0])/parallel_every )
     result = []
     for j in range(parallel_section):
+        p = mp.Pool(cpu_number)
+        t1 = time.time()
         parallel_index = parallel_index_initial[j*parallel_every: (j+1)*parallel_every]
         parallel_size = np.size(parallel_index)
-        result.append(p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt) for realization, i in zip(parallel_index, range(parallel_size))]).get())
-    p.close()
-    p.join()
+        result_temp = p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt) for realization, i in zip(parallel_index, range(parallel_size))]).get()
+        result.extend(result_temp)
+        t2 = time.time()
+        p.close()
+        p.join()
+        del result_temp, p
     return t, result
 
 
@@ -139,7 +145,8 @@ c = 4
 N = 10000
 sigma = 0.1
 parallel_index_initial = np.arange(1000) + 1000
-parallel_every = 100
+parallel_index_initial = [0]
+parallel_every = 1
 interval = 100
 bound = 0.1
 cpu_number = 38
@@ -147,13 +154,13 @@ cpu_number = 38
 t, result = nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound)
 
 t_num = np.size(t)
-realization_num = np.size(realization)
+realization_num = np.size(parallel_index_initial)
 number_l_set = np.zeros((realization_num, t_num))
 cluster_set = np.zeros((realization_num, t_num))
 nucleation_set = np.zeros((realization_num, t_num))
 low_ave_set = np.zeros((realization_num, t_num))
 
-for i in range(np.size(realization)):
+for i in range(realization_num):
     cluster_set[i], number_l_set[i], nucleation_set[i], low_ave_set[i] = result[i]
 
 data = np.vstack((t, cluster_set, number_l_set, nucleation_set, low_ave_set))
