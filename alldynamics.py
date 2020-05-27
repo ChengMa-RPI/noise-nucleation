@@ -36,8 +36,8 @@ A2 = 1
 x1 = 1
 x2 = 1.2
 x3 = 5
-remove = 1
-del_evo = 1
+remove = 0
+del_evo = 0
 
 def xj_xi(c, arguments, dxj):
     B, C, D, E, H, K = arguments
@@ -511,7 +511,7 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
             system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
     return None
 
-def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high):
+def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high, one_transition):
     """TODO: Docstring for T_continue.
 
     :T_start: TODO
@@ -530,7 +530,6 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             remove == 1
     if continue_evolution == 1:
         input_continue = input('do you want to continue evolution T?')
-        # input_continue = 'yes'
         if input_continue == 'yes':
             continue_evolution = 1
         elif input_continue == 'no':
@@ -550,8 +549,12 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
         A = network_ensemble_grid(N, int(np.sqrt(N)))
         if transition_to_high == 1:
             x_initial = xs_low
+            if one_transition == 1:
+                x_initial[int(N/2+np.sqrt(N)/2)] = xs_high_mean
         elif transition_to_high == 0:
             x_initial = xs_high
+            if one_transition == 1:
+                x_initial[int(N/2+np.sqrt(N)/2)] = xs_low_mean
         criteria = (xs_low_mean + xs_high_mean) / 2
 
         for sigma in sigma_set:
@@ -590,9 +593,9 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                         print('generate data:', dynamics.__name__, N, sigma, arguments[-1], t_start, t_end, parallel_index, t2 -t1)
                     else:
                         break
+                if del_evo == 1:
+                    shutil.rmtree(des+ 'evolution/')
             cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, degree, dynamics, c, trial_low, trial_high, arguments)
-            if del_evo == 1:
-                shutil.rmtree(des+ 'evolution/')
 
 
     return None
@@ -988,9 +991,9 @@ def tg_from_one_transition(dynamics, c, arguments, N, sigma, low, high, transiti
     else:
         x_initial = np.mean(xs_h) * np.ones(N)
     x_half = (np.mean(xs_l) + np.mean(xs_h))/2
-    x_initial[0] = x_half
+    x_initial[int(num_col/2)] = np.mean(xs_h)
     index = np.where(A!=0)
-    A_interaction = A[ndex].reshape(N, degree)
+    A_interaction = A[index].reshape(N, degree)
     local_state = np.random.RandomState(5) # avoid same random process.
     noise= np.random.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * sigma
     dyn = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
@@ -1000,9 +1003,9 @@ def tg_from_one_transition(dynamics, c, arguments, N, sigma, low, high, transiti
     
 
 
-parallel_size_all = 1000
+parallel_size_all = 1
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)   + 1000
+parallel_index_initial = np.arange(parallel_size_all)   
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -1011,18 +1014,19 @@ N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
 T_every = 100
 
 continue_evolution = 0
-parallel_every = 1000
+parallel_every = 1
 T_start = 0
 T_end = 1000
 transition_to_high_set = [1]
-index_set = [2]
-c_set = [6]
+one_transition = 1
+index_set = [0]
+c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.04, 0.043, 0.045, 0.047]]
+sigma_set_all = [[0.05]]
 N_set = [900, 2500]
-N_set = [10000]
 N_set = [100]
-R_set = [1]
+N_set = [10000]
+R_set = [0.2]
 
 arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
 for index in index_set:
@@ -1031,7 +1035,7 @@ for index in index_set:
 t1 = time.time()
 for R in R_set:
     for dynamics, c, arguments, sigma_set, transition_to_high in zip(dynamics_set, c_set, arguments_set, sigma_set_all, transition_to_high_set):
-        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high)
+        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high, one_transition)
 t2 = time.time()
 print(t2 -t1)
 '''

@@ -112,7 +112,7 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_st
     number_nucleation = np.hstack((cluster_set[0], np.diff(cluster_set)))
     return cluster_set, number_l_set, number_nucleation, low_ave
 
-def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound, T_start=0, T_end=200, dt=0.01):
+def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound, T_start=0, T_end=200, dt=0.01):
     """TODO: Docstring for nucleation_parallel.
 
     :arg1: TODO
@@ -121,8 +121,12 @@ def nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bo
     """
     p = mp.Pool(cpu_number)
     t = np.arange(T_start, T_end, dt*interval)
-    realization_num = np.size(realization)
-    result =  p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, reali, interval, bound, T_start, T_end, dt) for reali, i in zip(realization, range(realization_num))]).get()
+    parallel_section = int((parallel_index_initial[-1] + 1 - parallel_index_initial[0])/parallel_every )
+    result = []
+    for j in range(parallel_section):
+        parallel_index = parallel_index_initial[j*parallel_every: (j+1)*parallel_every]
+        parallel_size = np.size(parallel_index)
+        result.append(p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt) for realization, i in zip(parallel_index, range(parallel_size))]).get())
     p.close()
     p.join()
     return t, result
@@ -134,13 +138,13 @@ degree = 4
 c = 4 
 N = 10000
 sigma = 0.1
-realization = [0]
-realization = np.arange(1000) + 1000
+parallel_index_initial = np.arange(1000) + 1000
+parallel_every = 100
 interval = 100
 bound = 0.1
 cpu_number = 38
 
-t, result = nucleation_parallel(dynamics, degree, c, N, sigma, realization, interval, bound)
+t, result = nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound)
 
 t_num = np.size(t)
 realization_num = np.size(realization)
