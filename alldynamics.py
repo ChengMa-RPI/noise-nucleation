@@ -463,6 +463,7 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
             np.save(evolution_file, dyn_all)
     else:
         np.save(evolution_file, dyn_all)
+    del noise, dyn_all, x_high, dyn_ave
     return None
 
 def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove):
@@ -506,9 +507,11 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
         p.starmap_async(system_collect, [(realization, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove) for realization, i in zip(parallel_index, range(parallel_size))]).get()
         p.close()
         p.join()
+        del p
     else:
         for i, i_index in zip(range(parallel_size), parallel_index):
             system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
+    del x_start
     return None
 
 def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high, one_transition):
@@ -1018,7 +1021,7 @@ parallel_every = 1
 T_start = 0
 T_end = 1000
 transition_to_high_set = [1]
-one_transition = 1
+one_transition = 0
 index_set = [0]
 c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
