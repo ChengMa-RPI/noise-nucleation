@@ -555,7 +555,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             "change initial value according to the noise if initial state is given"
             if initial_noise == 0:
                 x_initial = xs_low
-            elif:
+            else:
                 x_initial = initial_noise * np.ones(N)
             if one_transition == 1:
                 x_initial[int(N/2+np.sqrt(N)/2)] = xs_high_mean
@@ -569,7 +569,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             if dynamics == mutual_lattice:
                 if initial_noise == 0:
                     des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
-                elif initial_noise == 1:
+                else:
                     des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/'
             elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
