@@ -69,7 +69,7 @@ def cluster_division(cluster, index_before, index_after, index_add, N):
 
     return cluster
 
-def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt):
+def nucleation(dynamics, degree, c, N, sigma, realization, interval, initial_noise, bound, T_start, T_end, dt):
     """TODO: Docstring for nucleation.
 
     :dynamics: TODO
@@ -82,15 +82,19 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_st
     number_l_set = np.zeros((t_num))
     cluster_set = np.zeros((t_num))
     low_ave = np.ones((t_num))
-
-    des_evo = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/evolution/'
+    des =  '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma)  
+    if initial_noise == 0:
+        des_evo = des + '/evolution/'
+    else:
+        des_evo = des +  '_x_i' + str(initial_noise) + '/evolution/'
     evolution_file = des_evo + f'realization{realization}_T_{T_start}_{T_end}.npy'
     evolution = np.load(evolution_file)
     evolution_interval = evolution[::interval]
     x_ave = np.mean(evolution_interval, 1)
     x_l = x_ave[0]
     x_h = x_ave[-1]
-    x_h < 1:
+    "the value of x_h should be changed according to the dynamics"
+    if x_h < 1:
         x_h = 6.964
     rho = (evolution_interval - x_l)/(x_h-x_l)  # global state
     index_before = []
@@ -114,7 +118,7 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, bound, T_st
     number_nucleation = np.hstack((cluster_set[0], np.diff(cluster_set)))
     return cluster_set, number_l_set, number_nucleation, low_ave
 
-def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound, T_start=0, T_end=100, dt=0.01):
+def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, initial_noise, bound, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for nucleation_parallel.
 
     :arg1: TODO
@@ -144,14 +148,15 @@ degree = 4
 c = 4 
 N = 10000
 sigma = 0.1
-parallel_index_initial = np.arange(1000) + 1000
+initial_noise = 0.1707
 parallel_index_initial = [0]
+parallel_index_initial = np.arange(1000) + 1000
 parallel_every = 1
 interval = 100
 bound = 0.1
 cpu_number = 38
 
-t, result = nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, bound)
+t, result = nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, initial_noise, bound)
 
 t_num = np.size(t)
 realization_num = np.size(parallel_index_initial)
