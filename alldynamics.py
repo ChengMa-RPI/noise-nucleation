@@ -514,12 +514,13 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
     del x_start
     return None
 
-def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high, one_transition):
+def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high, one_transition, initial_noise):
     """TODO: Docstring for T_continue.
 
     :T_start: TODO
     :T_end: TODO
     :T_every: TODO
+    :initial_noise: x_l is calculated without noise if 0; input argument if x_l is given
     :returns: TODO
 
     """
@@ -551,7 +552,11 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
         xs_high = xs_high_mean * np.ones(N)
         A = network_ensemble_grid(N, int(np.sqrt(N)))
         if transition_to_high == 1:
-            x_initial = xs_low
+            "change initial value according to the noise if initial state is given"
+            if initial_noise == 0:
+                x_initial = xs_low
+            elif:
+                x_initial = initial_noise * np.ones(N)
             if one_transition == 1:
                 x_initial[int(N/2+np.sqrt(N)/2)] = xs_high_mean
         elif transition_to_high == 0:
@@ -562,7 +567,10 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
 
         for sigma in sigma_set:
             if dynamics == mutual_lattice:
-                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                if initial_noise == 0:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                elif initial_noise == 1:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/'
             elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
             elif dynamics != quadratic_lattice and arguments[-1] == 0.2:
@@ -600,7 +608,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                     shutil.rmtree(des+ 'evolution/')
             cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, degree, dynamics, c, trial_low, trial_high, arguments)
 
-
+    del A
     return None
 
 def T_continue_mfpt(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, continue_evolution, dynamics, c, arguments, transition_to_high, low, high):
@@ -1022,6 +1030,7 @@ T_start = 0
 T_end = 1000
 transition_to_high_set = [1]
 one_transition = 0
+initial_noise = 0.1707
 index_set = [0]
 c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
@@ -1038,7 +1047,7 @@ for index in index_set:
 t1 = time.time()
 for R in R_set:
     for dynamics, c, arguments, sigma_set, transition_to_high in zip(dynamics_set, c_set, arguments_set, sigma_set_all, transition_to_high_set):
-        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high, one_transition)
+        T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high, one_transition, initial_noise)
 t2 = time.time()
 print(t2 -t1)
 '''
