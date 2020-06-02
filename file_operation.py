@@ -102,9 +102,13 @@ def clear_file(N_set, sigma_set, R_set, des_type, realization):
                     des = f'../data/' + dynamics + f'{degree}/size{N}/c{c}/strength={sigma}_R{R}/'
                 des_file = os.listdir(des+des_type)
                 for filename in des_file:
-                    realization_num = ast.literal_eval(filename[filename.find('realization') + len('realization'): filename.find('_')])
+                    if des_type == 'high/':
+                        realization_num = ast.literal_eval(filename[filename.find('realization') + len('realization'): filename.find('.')])
+                    else:
+                        realization_num = ast.literal_eval(filename[filename.find('realization') + len('realization'): filename.find('_')])
+
                     if realization_num in realization:
-                        #remove_dir(filename)
+                        remove_dir(des+ des_type+ filename)
                         print(realization_num)
 
 degree = 4

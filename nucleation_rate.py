@@ -69,6 +69,24 @@ def cluster_division(cluster, index_before, index_after, index_add, N):
 
     return cluster
 
+def neighbor_find(node, N):
+    """TODO: Docstring for neighbor_find.
+
+    :node: TODO
+    :returns: TODO
+
+    """
+    M = int(np.sqrt(N))
+    row, column = convert_index(node, N)
+    neighbor1 = (row + 1) * M + column
+    neighbor2 = (row - 1) * M + column
+    neighbor3 = row * M + (column + 1)
+    neighbor4 = row * M + (column - 1)
+    neighbors = np.setdiff1d(np.unique(np.hstack((neighbor1, neighbor2, neighbor3, neighbor4))), node)
+    neighbor_num = np.size(neighbors)
+    return neighbors, neighbor_num
+
+
 def nucleation(dynamics, degree, c, N, sigma, realization, interval, initial_noise, bound, T_start, T_end, dt):
     """TODO: Docstring for nucleation.
 
@@ -101,12 +119,17 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, initial_noi
     cluster = []
     for i in range(t_num):
         h_index = np.where(rho[i] > bound)[0]
-        number_l_set[i] = N - np.size(h_index)
+        high_neighbor, high_neighbor_num = neighbor_find(h_index, N)
+        l_index = np.setdiff1d(np.arange(N), np.hstack((h_index, high_neighbor)))
+        number_l_set[i] = N - np.size(h_index) - high_neighbor_num
         if number_l_set[i] > 0:
+            low_ave[i] = np.mean(rho[i][l_index])
+            '''
             if i == 0:
                 low_ave[i] = np.mean(rho[i][rho[i]<bound])
             else:
                 low_ave[i] = np.mean(rho[i-1][rho[i]<bound])
+            '''
         if np.size(h_index)>0 and np.size(h_index)<N:
             index_after = h_index
             index_add = np.setdiff1d(index_after, index_before)
@@ -133,13 +156,43 @@ def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, p
         t1 = time.time()
         parallel_index = parallel_index_initial[j*parallel_every: (j+1)*parallel_every]
         parallel_size = np.size(parallel_index)
-        result_temp = p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, realization, interval, bound, T_start, T_end, dt) for realization, i in zip(parallel_index, range(parallel_size))]).get()
+        result_temp = p.starmap_async(nucleation, [(dynamics, degree, c, N, sigma, realization, interval, initial_noise, bound, T_start, T_end, dt) for realization, i in zip(parallel_index, range(parallel_size))]).get()
         result.extend(result_temp)
         t2 = time.time()
+        print(parallel_index, t2- t1)
         p.close()
         p.join()
         del result_temp, p
     return t, result
+
+def x_stat(dynamics, degree, c, N, sigma, realization, interval, T_start=0, T_end=100, dt=0.01):
+    """TODO: Docstring for x_stat.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    t = np.arange(T_start, T_end, dt*interval)
+    t_num = np.size(t)
+    des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+    des_evo = des + 'evolution/'
+    evolution_file = des_evo + f'realization{realization}_T_{T_start}_{T_end}.npy'
+    evolution = np.load(evolution_file)
+    evolution_interval = evolution[::interval]
+    x_ave = np.mean(evolution_interval, 1)
+    x_l = x_ave[0]
+    x_h = x_ave[-1]
+    "the value of x_h should be changed according to the dynamics"
+    if x_h < 1:
+        x_h = 6.964
+    rho = (evolution_interval - x_l)/(x_h-x_l)  # global state
+    for i in range(0, 10, 1):
+        hist, _ = np.histogram(rho[i], bins)
+        plt.plot(bins[:-1], hist, label=f'$t={i}$')
+    plt.legend()
+    plt.show()
+
+
 
 
 
@@ -148,13 +201,15 @@ degree = 4
 c = 4 
 N = 10000
 sigma = 0.1
-initial_noise = 0.1707
-parallel_index_initial = [0]
+initial_noise = 0
 parallel_index_initial = np.arange(1000) + 1000
+parallel_index_initial = [0]
 parallel_every = 1
 interval = 100
 bound = 0.1
 cpu_number = 38
+bins = np.arange(-0.2, 1.2, 0.01)
+
 
 t, result = nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, initial_noise, bound)
 
@@ -171,4 +226,7 @@ for i in range(realization_num):
 data = np.vstack((t, cluster_set, number_l_set, nucleation_set, low_ave_set))
 
 data_df = pd.DataFrame(data)
-data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/nucleation.csv', index=False, header=False)
+if initial_noise == 0:
+    data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/nucleation.csv', index=False, header=False)
+else:
+    data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/nucleation.csv', index=False, header=False)
