@@ -102,8 +102,10 @@ def nucleation(dynamics, degree, c, N, sigma, realization, interval, initial_noi
     des =  '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma)  
     if initial_noise == 0:
         des_evo = des + '/evolution/'
-    else:
+    elif type(initial_noise) == float:
         des_evo = des +  '_x_i' + str(initial_noise) + '/evolution/'
+    elif initial_noise == 'metastable':
+        des_evo = des +  '_' + initial_noise + '/evolution/'
     evolution_file = des_evo + f'realization{realization}_T_{T_start}_{T_end}.npy'
     evolution = np.load(evolution_file)
     evolution_interval = evolution[::interval]
@@ -164,7 +166,6 @@ def nucleation_parallel(dynamics, degree, c, N, sigma, parallel_index_initial, p
         del result_temp, p
     return t, result
 
-
 def nucleation_data_save(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, initial_noise, bound, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for nucleation_data_save.
 
@@ -188,8 +189,10 @@ def nucleation_data_save(dynamics, degree, c, N, sigma, parallel_index_initial, 
     data_df = pd.DataFrame(data)
     if initial_noise == 0:
         data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/nucleation.csv', index=False, header=False)
-    else:
+    elif type(initial_noise) == float:
         data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/nucleation.csv', index=False, header=False)
+    elif initial_noise == 'metastable':
+        data_df.to_csv('../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/nucleation.csv', index=False, header=False)
 
 def x_stat(dynamics, degree, c, N, sigma, realization_set, interval, bins, T_start=0, T_end=100, dt=0.01):
     """TODO: Docstring for x_stat.
@@ -230,6 +233,7 @@ c = 4
 N = 10000
 sigma = 0.1
 initial_noise = 0
+initial_noise = 'metastable'
 parallel_index_initial = np.arange(1000) + 1000
 parallel_index_initial = [0]
 realization_set = [0]
@@ -239,4 +243,6 @@ bound = 0.1
 cpu_number = 38
 bins = np.arange(-0.2, 1.2, 0.01)
 
-x_stat(dynamics, degree, c, 10000, 0.1, [0], 100, bins)
+# x_stat(dynamics, degree, c, 10000, 0.1, [0], 100, bins)
+nucleation_data_save(dynamics, degree, c, N, sigma, parallel_index_initial, parallel_every, interval, initial_noise, bound)
+

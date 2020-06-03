@@ -168,7 +168,6 @@ def mutual_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     """
     B, C, D, E, H, K, R= arguments
     x[np.where(x<0)] = 0  # Negative x is forbidden
-    t2 = time.time()
     x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
     dxdt = B + x * (1 - x/K) * ( x/C - 1) + c/4 * x * np.sum(A_interaction * x_j / (D + E * x.reshape(N, 1) + H * x_j), -1)
@@ -331,7 +330,6 @@ def quadratic_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
     dxdt = A1 * (x - x1) * (x - x2) * np.heaviside(x2 - x, 0) - A2 * (x - x2) * (x - x3) * np.heaviside(x - x2, 0) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
     return dxdt
-
 
 def stable_state(A, degree, dynamics, c, low, high, arguments):
     """calculate stables states for a given interaction matrix and dynamics-main.mutual
@@ -555,8 +553,9 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             "change initial value according to the noise if initial state is given"
             if initial_noise == 0:
                 x_initial = xs_low
-            else:
+            elif type(initial_noise) == float :
                 x_initial = initial_noise * np.ones(N)
+
             if one_transition == 1:
                 x_initial[int(N/2+np.sqrt(N)/2)] = xs_high_mean
         elif transition_to_high == 0:
@@ -569,14 +568,26 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
             if dynamics == mutual_lattice:
                 if initial_noise == 0:
                     des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
-                else:
+                elif type(initial_noise) == float:
                     des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/'
+                elif initial_noise == 'metastable':
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
+
             elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
             elif dynamics != quadratic_lattice and arguments[-1] == 0.2:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
             elif dynamics == quadratic_lattice:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/x2=' + str(c) + '/strength=' + str(sigma) + '/' + f'A1={arguments[0]}_A2={arguments[1]}_R={arguments[-1]}/'
+
+            "first put the system at the metastable state"
+            if initial_noise == 'metastable':
+                index = np.where(A!=0)
+                A_interaction = A[index].reshape(N, degree)
+                pre_t = np.arange(0, 20, dt)
+                dynamics_pre = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_preprocess']
+                noise= np.random.normal(0, np.sqrt(dt), (np.size(pre_t)-1, N)) * sigma
+                x_initial = main.sdesolver(main.close(dynamics_pre, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
 
             if not os.path.exists(des):
                 os.makedirs(des)
@@ -1012,11 +1023,25 @@ def tg_from_one_transition(dynamics, c, arguments, N, sigma, low, high, transiti
     tg = next(x for x, y in enumerate(rho) if y > x_half) * 0.01
     return tg
     
+def mutual_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
+    """TODO: Docstring for preprocess.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    B, C, D, E, H, K, R= arguments
+    x[np.where(x<0)] = 0  # Negative x is forbidden
+    x[np.where(x>0.6)] = 0.1362  # transition is forbidden
+    x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
+    x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
+    dxdt = B + x * (1 - x/K) * ( x/C - 1) + c/4 * x * np.sum(A_interaction * x_j / (D + E * x.reshape(N, 1) + H * x_j), -1)
+    return dxdt
 
 
 parallel_size_all = 1
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)   
+parallel_index_initial = np.arange(parallel_size_all)  
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -1030,13 +1055,13 @@ T_start = 0
 T_end = 1000
 transition_to_high_set = [1]
 one_transition = 0
-initial_noise = 0.1707
+initial_noise = 'metastable'
 index_set = [0]
 c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.05]]
-N_set = [900, 2500]
+sigma_set_all = [[0.1]]
 N_set = [100]
+N_set = [2500]
 N_set = [10000]
 R_set = [0.2]
 
