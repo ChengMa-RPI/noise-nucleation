@@ -36,8 +36,8 @@ A2 = 1
 x1 = 1
 x2 = 1.2
 x3 = 5
-remove = 0
-del_evo = 0
+remove = 1
+del_evo = 1
 
 def xj_xi(c, arguments, dxj):
     B, C, D, E, H, K = arguments
@@ -284,6 +284,21 @@ def vegetation_lattice(x, t, N, index, degree, A_interaction, c, arguments):
     dxdt = rv * x * (1 - x * (r**4 + (hv * c / (hv + x))**4)/r**4) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
     return dxdt
 
+def harvestmay_1D(x, t, c, arguments):
+    """TODO: Docstring for harvest_may.
+
+    :x: TODO
+    :t: TODO
+    :gamma: TODO
+    :alpha: TODO
+    :returns: TODO
+
+    """
+    gamma = c
+    alpha = arguments
+    dxdt = x * (1 - x) - gamma * x**2 / (alpha**2 + x**2)
+    return dxdt
+
 def cubic_1D(x, t, c, arguments):
     """original dynamics N species interaction.
 
@@ -382,8 +397,8 @@ def bifurcation(c, dynamics, arguments, initial_x, t=np.linspace(0, 1000, 100001
     bifurcation.to_csv(des + 'bifurcation.csv', mode='w', index=False, header=False)
 
     unstable_positive = unstable[unstable != 0]
-    plt.loglog(c, stable, 'k')
-    plt.loglog(c[unstable != 0], unstable_positive, '--')
+    plt.plot(c, stable, 'k')
+    plt.plot(c[unstable != 0], unstable_positive, '--')
     plt.xlabel('$c$', fontsize = fs)
     plt.ylabel('$x$', fontsize=fs)
     plt.subplots_adjust(left=0.18, wspace=0.25, hspace=0.25, bottom=0.13, top=0.91)
@@ -582,12 +597,21 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
 
             "first put the system at the metastable state"
             if initial_noise == 'metastable':
+                bound_forbid = 1
                 index = np.where(A!=0)
                 A_interaction = A[index].reshape(N, degree)
-                pre_t = np.arange(0, 20, dt)
+                pre_t = np.arange(0, 25, dt)
                 dynamics_pre = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_preprocess']
                 noise= np.random.normal(0, np.sqrt(dt), (np.size(pre_t)-1, N)) * sigma
-                x_initial = main.sdesolver(main.close(dynamics_pre, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
+                # x_initial = main.sdesolver(main.close(dynamics_pre, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
+                pre_x = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
+                bins = np.arange(-1, bound_forbid, 0.001)
+                hist = np.histogram(pre_x, bins)[0]
+                hist_norm = hist/np.sum(hist)
+                exceed_index = np.where(pre_x>=1)[0]
+                print(np.size(bins[:-1]), np.size(hist), np.size(exceed_index), np.sum(hist_norm))
+                pre_x[exceed_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
+                x_initial = pre_x
 
             if not os.path.exists(des):
                 os.makedirs(des)
@@ -1041,7 +1065,7 @@ def mutual_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
 
 parallel_size_all = 1
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)  
+parallel_index_initial = np.arange(parallel_size_all)   
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -1055,11 +1079,13 @@ T_start = 0
 T_end = 1000
 transition_to_high_set = [1]
 one_transition = 0
+initial_noise = 0
 initial_noise = 'metastable'
 index_set = [0]
+c_set = [2.6]
 c_set = [4]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.1]]
+sigma_set_all = [[0.081]]
 N_set = [100]
 N_set = [2500]
 N_set = [10000]
@@ -1076,7 +1102,6 @@ for R in R_set:
 t2 = time.time()
 print(t2 -t1)
 '''
-
 for N in N_set:
     for sigma in sigma_set:
         des = f'../data/harvest{degree}/size{N}/c{c}/strength={sigma}/'
@@ -1088,5 +1113,6 @@ c_bifurcation = [np.arange(-3,10,0.1), np.arange(1.6, 3,0.01), np.arange(0.1, 8,
 dynamics_bifurcation = [mutual_1D, harvest_1D, eutrophication_1D, vegetation_1D]
 for c, dynamics, arguments in zip (c_bifurcation, dynamics_bifurcation, arguments_set):
     bifurcation(c, dynamics, arguments, np.arange(0.1, 20, 0.5))
-'''
 
+'''
+# bifurcation(np.arange(0.1, 0.3, 0.002), harvestmay_1D, (0.1), np.arange(0.01, 1, 0.001))
