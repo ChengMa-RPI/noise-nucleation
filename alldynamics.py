@@ -36,8 +36,8 @@ A2 = 1
 x1 = 1
 x2 = 1.2
 x3 = 5
-remove = 1
-del_evo = 1
+remove = 0
+del_evo = 0
 
 def xj_xi(c, arguments, dxj):
     B, C, D, E, H, K = arguments
@@ -434,13 +434,20 @@ def check_exist_T(des):
         T.append(t)
     return np.max(T)
 
-def system_collect(store_index, N, index, degree, A_interaction, strength, x_initial, T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove):
+def system_collect(store_index, N, index, degree, A_interaction, strength, x_initial, T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise):
     """one realization to run sdeint and save dynamics
 
     """
     evolution_file = des_evolution + f'realization{store_index}_T_{T_start}_{T_end}'
     # local_state = np.random.RandomState(store_index + T_start * int(parallel_size_all/T_every) ) # avoid same random process.
     local_state = np.random.RandomState(store_index)
+    if initial_noise == 'metastable' and T_start == 0:
+        pre_t = np.arange(0, 50, dt)
+        dynamics_pre = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_preprocess']
+        noise= local_state.normal(0, np.sqrt(dt), (np.size(pre_t)-1, N)) * strength
+        x_initial = main.sdesolver(main.close(dynamics_pre, *(N, index, degree, A_interaction, c, arguments)), x_initial, pre_t, dW = noise)[-1] 
+
+
     for i in range(int(T_start/T_every)+1):
         noise= local_state.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * strength
     if N == 1:
@@ -479,7 +486,7 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
     del noise, dyn_all, x_high, dyn_ave
     return None
 
-def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove):
+def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise):
     """parallel computing or series computing 
 
     :A: adjacency matrix 
@@ -517,13 +524,13 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
             os.remove(evolution_file)
     if cpu_number > 0:
         p = mp.Pool(cpu_number)
-        p.starmap_async(system_collect, [(realization, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove) for realization, i in zip(parallel_index, range(parallel_size))]).get()
+        p.starmap_async(system_collect, [(realization, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise) for realization, i in zip(parallel_index, range(parallel_size))]).get()
         p.close()
         p.join()
         del p
     else:
         for i, i_index in zip(range(parallel_size), parallel_index):
-            system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove)
+            system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise)
     del x_start
     return None
 
@@ -566,7 +573,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
         A = network_ensemble_grid(N, int(np.sqrt(N)))
         if transition_to_high == 1:
             "change initial value according to the noise if initial state is given"
-            if initial_noise == 0:
+            if initial_noise == 0 or initial_noise == 'metastable':
                 x_initial = xs_low
             elif type(initial_noise) == float :
                 x_initial = initial_noise * np.ones(N)
@@ -589,29 +596,22 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                     des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
 
             elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
-                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
+                if initial_noise == 0:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1]) + '/'
+                elif type(initial_noise) == float:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1])+ '_x_i' + str(initial_noise) + '/'
+                elif initial_noise == 'metastable':
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(arguments[-1])+ '_' + initial_noise + '/'
             elif dynamics != quadratic_lattice and arguments[-1] == 0.2:
-                des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                if initial_noise == 0:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                elif type(initial_noise) == float:
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/'
+                elif initial_noise == 'metastable':
+                    des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
+
             elif dynamics == quadratic_lattice:
                 des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/' + 'size' + str(N) + '/x2=' + str(c) + '/strength=' + str(sigma) + '/' + f'A1={arguments[0]}_A2={arguments[1]}_R={arguments[-1]}/'
-
-            "first put the system at the metastable state"
-            if initial_noise == 'metastable':
-                bound_forbid = 1
-                index = np.where(A!=0)
-                A_interaction = A[index].reshape(N, degree)
-                pre_t = np.arange(0, 25, dt)
-                dynamics_pre = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_preprocess']
-                noise= np.random.normal(0, np.sqrt(dt), (np.size(pre_t)-1, N)) * sigma
-                # x_initial = main.sdesolver(main.close(dynamics_pre, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
-                pre_x = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), xs_low, pre_t, dW = noise)[-1] 
-                bins = np.arange(-1, bound_forbid, 0.001)
-                hist = np.histogram(pre_x, bins)[0]
-                hist_norm = hist/np.sum(hist)
-                exceed_index = np.where(pre_x>=1)[0]
-                print(np.size(bins[:-1]), np.size(hist), np.size(exceed_index), np.sum(hist_norm))
-                pre_x[exceed_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
-                x_initial = pre_x
 
             if not os.path.exists(des):
                 os.makedirs(des)
@@ -634,7 +634,7 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                         _, parallel_index = transition_index(des, parallel_index, transition_to_high, criteria)
                     if len(parallel_index) != 0:
                         t1 =time.time()
-                        system_parallel(A, degree, sigma, t_start, t_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove)
+                        system_parallel(A, degree, sigma, t_start, t_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise)
                         t2 =time.time()
                         print('generate data:', dynamics.__name__, N, sigma, arguments[-1], t_start, t_end, parallel_index, t2 -t1)
                     else:
@@ -1056,16 +1056,89 @@ def mutual_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
     """
     B, C, D, E, H, K, R= arguments
     x[np.where(x<0)] = 0  # Negative x is forbidden
-    x[np.where(x>0.6)] = 0.1362  # transition is forbidden
+    bound_forbid = 0.8
+    bins = np.arange(-1, bound_forbid, 0.001)
+    hist = np.histogram(x, bins)[0]
+    hist_norm = hist/np.sum(hist)
+    exceed_index = np.where(x>=bound_forbid)[0]
+    exceed_neighbor = A_interaction[exceed_index]
+    change_index = np.unique(np.hstack((exceed_index, np.ravel(exceed_neighbor))))
+    x[change_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
     x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
     x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
     dxdt = B + x * (1 - x/K) * ( x/C - 1) + c/4 * x * np.sum(A_interaction * x_j / (D + E * x.reshape(N, 1) + H * x_j), -1)
     return dxdt
 
+def harvest_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
+    """TODO: Docstring for preprocess.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    r, K, R = arguments
+    x[np.where(x<0)] = 0  # Negative x is forbidden
+    bound_forbid = 1.5
+    bins = np.arange(-1, bound_forbid, 0.001)
+    hist = np.histogram(x, bins)[0]
+    hist_norm = hist/np.sum(hist)
+    exceed_index = np.where(x>=bound_forbid)[0]
+    exceed_neighbor = A_interaction[exceed_index]
+    change_index = np.unique(np.hstack((exceed_index, np.ravel(exceed_neighbor))))
+    x[change_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
+    x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
+    x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
+    dxdt = r * x * (1 - x/K) - c * x**2 / (x**2 + 1) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
+    return dxdt
+
+def eutrophication_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
+    """TODO: Docstring for preprocess.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    a, r, R = arguments
+    x[np.where(x<0)] = 0  # Negative x is forbidden
+    bound_forbid = 0.8
+    bins = np.arange(-1, bound_forbid, 0.001)
+    hist = np.histogram(x, bins)[0]
+    hist_norm = hist/np.sum(hist)
+    exceed_index = np.where(x>=bound_forbid)[0]
+    exceed_neighbor = A_interaction[exceed_index]
+    change_index = np.unique(np.hstack((exceed_index, np.ravel(exceed_neighbor))))
+    x[change_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
+    x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
+    x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
+    dxdt = a - r * x + c * x**8 / (x**8 + 1) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
+    return dxdt
+
+def vegetation_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
+    """TODO: Docstring for preprocess.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    r, rv, hv, R = arguments 
+    x[np.where(x<0)] = 0  # Negative x is forbidden
+    bound_forbid = 0.2
+    bins = np.arange(-1, bound_forbid, 0.001)
+    hist = np.histogram(x, bins)[0]
+    hist_norm = hist/np.sum(hist)
+    exceed_index = np.where(x>=bound_forbid)[0]
+    exceed_neighbor = A_interaction[exceed_index]
+    change_index = np.unique(np.hstack((exceed_index, np.ravel(exceed_neighbor))))
+    x[change_index] = np.random.choice(bins[:-1], np.size(exceed_index), p=hist_norm)
+    x_tile = np.broadcast_to(x, (N,N))  # copy vector x to N rows
+    x_j = x_tile[index].reshape(N, degree) # select interaction term j with i
+    dxdt = rv * x * (1 - x * (r**4 + (hv * c / (hv + x))**4)/r**4) - 4 * R * x + R * np.sum(A_interaction * x_j, -1)
+    return dxdt
+
 
 parallel_size_all = 1
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)   
+parallel_index_initial = np.arange(parallel_size_all)
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
@@ -1076,20 +1149,24 @@ T_every = 100
 continue_evolution = 0
 parallel_every = 1
 T_start = 0
-T_end = 1000
+T_end = 100
 transition_to_high_set = [1]
 one_transition = 0
 initial_noise = 0
 initial_noise = 'metastable'
-index_set = [0]
-c_set = [2.6]
+index_set = [3]
 c_set = [4]
+c_set = [6]
+c_set = [1.8]
+c_set = [2.6]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.081]]
-N_set = [100]
+sigma_set_all = [[0.01]]
+N_set = [900]
 N_set = [2500]
+N_set = [16, 25, 36, 49, 64, 81]
 N_set = [10000]
-R_set = [0.2]
+N_set = [100]
+R_set = [0.02]
 
 arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
 for index in index_set:
@@ -1116,3 +1193,6 @@ for c, dynamics, arguments in zip (c_bifurcation, dynamics_bifurcation, argument
 
 '''
 # bifurcation(np.arange(0.1, 0.3, 0.002), harvestmay_1D, (0.1), np.arange(0.01, 1, 0.001))
+
+
+
