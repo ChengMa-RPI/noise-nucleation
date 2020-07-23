@@ -10,8 +10,10 @@ import itertools
 import matplotlib as mpl
 
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-']))
-mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:red', 'tab:green', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-']))
 
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-']))
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
 
 marker = itertools.cycle(('d', 'v', 'o', 'X', '*'))
 
@@ -116,36 +118,49 @@ def scaling(dynamics, degree, N, sigma, tau, scaling_method, fit_method):
         fit_c = c_all[N_all == N][0]
     elif fit_method == 'uniform':
         fit_c = np.mean(c_all)
-
     print(fit_c)
     if scaling_method == 'scaling_all':
-        x = np.exp(fit_c/3/sigma**2)/N**(1/2)
-        y = tau * np.exp(-fit_c/3/sigma**2)
         x = np.exp(3*fit_c/8/sigma**2)/N**(1/2)
         y = tau * np.exp(-fit_c/4/sigma**2)
+        x = np.exp(fit_c/3/sigma**2)/N**(1/2)
+        y = tau * np.exp(-fit_c/3/sigma**2)
         plt.loglog(x, y, '--', marker = next(marker), markersize=8, label=f'N={N}')
+        plt.text(0.05, 7, 'single cluster', fontsize=18)
+        plt.text(2, 1e2, 'multi cluster', rotation=50, fontsize=18)
         "show y = x**2 line"
         if N == 10000:
             x_standard = np.arange(2, 50, 1)
-            plt.loglog(x_standard, x_standard**2, color = 'k', label='$y=x^2$')
+            plt.loglog(x_standard, x_standard**2, color = 'k', label='slope=2')
+        plt.xlabel('$e^{3c/8\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+        plt.ylabel('$\\langle \\tau \\rangle e^{-c/4\\sigma^2} $', fontsize= fs )
+        plt.xlabel('$e^{2c/5\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+        plt.ylabel('$\\langle \\tau \\rangle e^{-c/5\\sigma^2} $', fontsize= fs )
+        plt.xlabel('$e^{c/3\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+        plt.ylabel('$\\langle \\tau \\rangle e^{-c/3\\sigma^2} $', fontsize= fs )
+
     elif scaling_method == 'scaling_single':
         x = 1/sigma**2
         y = tau * N 
         plt.semilogy(x, y, '--', marker= next(marker), markersize=8, label=f'N={N}')
+        plt.ylabel('$N \\langle \\tau \\rangle  $', fontsize =fs)
+        plt.xlabel('$1/\\sigma^2$', fontsize=fs)
     elif scaling_method == 'scaling_nucleation':
         x = np.exp(-fit_c/sigma**2)
         y = tau
         ax = plt.gca()
-        lin, = ax.plot(x, y, '--', lw=2, label=f'N={N}')
-        mark, = ax.plot(x, y, linestyle ='None',  marker=next(marker), alpha=.8, ms=8)
+        lin, = ax.loglog(x, y, '--', lw=2, label=f'N={N}')
+        mark, = ax.loglog(x, y, linestyle ='None',  marker=next(marker), alpha=.8, ms=8)
 
         # plt.loglog(x, y, '--', marker = next(marker), alpha = 0.5, markersize=8, label=f'N={N}')
         if N == 10000:
-            x_standard = np.arange(1e-8, 2e-7, 1e-7)
-            plt.loglog(x_standard, 1/x_standard*1e-4, color = 'k', label='$y \\sim x^{-1}$')
-            x_standard = np.arange(1e-4, 1e-2, 1e-3)
-            plt.loglog(x_standard, 1/x_standard**(1/3)*1e-0, '--', color = 'k', label='$y \\sim x^{-1/3}$')
-            plt.loglog(x_standard, 1/x_standard**(1/4)*4e-0, '--', color = 'r', label='$y \\sim x^{-1/4}$')
+            x_standard = np.arange(1e-8, 1e-6, 1e-7)
+            plt.loglog(x_standard, 1/x_standard*7e-5, color = 'k', label='slope$=-1$')
+            x_standard = np.arange(1e-5, 5e-3, 1e-3)
+            plt.loglog(x_standard, 1/x_standard**(1/3)*9e-1, '--', color = 'k', label='slope$=-\\frac{1}{3}$')
+            # plt.loglog(x_standard, 1/x_standard**(1/4)*2e-0, '--', color = 'r', label='$y \\sim x^{-1/4}$')
+
+        plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
+        plt.xlabel('$e^{-c/\\sigma^2}$', fontsize=fs)
     elif scaling_method == 'scaling_nucleation_inverse':
         x = np.exp(fit_c/sigma**2)
         y = tau
@@ -159,10 +174,78 @@ def scaling(dynamics, degree, N, sigma, tau, scaling_method, fit_method):
             x_standard = np.arange(1e2, 1e4, 1e3)
             plt.loglog(x_standard, x_standard**(1/3)*1e-0, '--', color = 'k', label='$y \\sim x^{1/3}$')
             plt.loglog(x_standard, x_standard**(1/4)*4, '--', color = 'r', label='$y \\sim x^{1/4}$')
+        plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
+        plt.xlabel('$e^{c/\\sigma^2}$', fontsize=fs)
 
     return x, y
 
-def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit, powerlaw, plot_type):
+def separation(dynamics, N1, sigma1, sigma2):
+    """TODO: Docstring for seperation.
+
+    :dynamics: TODO
+    :N: TODO
+    :sigma: TODO
+    :tau: TODO
+    :returns: TODO
+
+    """
+    fit_data = np.array(pd.read_csv('../data/' + dynamics + str(degree) +  '/tau_fit.csv', header=None).iloc[:,: ])
+    N_all = fit_data[:, 0]
+    c_all = fit_data[:, 1]
+    fit_c = np.mean(c_all)
+    N1_set = []
+    N2_set = []
+    sigma1_set = []
+    sigma2_set = []
+    for N, sigma in zip(N1, sigma1):
+        N1_set.extend([N] * np.size(sigma))
+        sigma1_set.extend(sigma)
+    for N, sigma in zip(N1, sigma2):
+        N2_set.extend([N] * np.size(sigma))
+        sigma2_set.extend(sigma)
+    sigma_array = np.linspace(np.min(sigma1_set), np.max(sigma2_set), 10)
+    y = np.exp(2*fit_c/3/sigma_array**2)
+    plt.semilogy(sigma_array, y, '--', alpha = alpha, linewidth=linewidth, color='k')
+    plt.plot(sigma1_set, N1_set, '*', markersize=8, label='single cluster', color='tab:red')
+    plt.plot(sigma2_set, N2_set, 'o', markersize=8, label='multi cluster', color='tab:blue')
+    plt.xlabel('$\\sigma$', fontsize=fs)
+    plt.ylabel('$N$', fontsize=fs)
+    plt.subplots_adjust(left=0.15, right=0.98, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
+    plt.xticks(fontsize=ticksize)
+    plt.yticks(fontsize=ticksize)
+    plt.legend(fontsize=legendsize)
+    plt.show()
+
+def separation_fill(dynamics, sigma):
+    """TODO: Docstring for seperation.
+
+    :dynamics: TODO
+    :N: TODO
+    :sigma: TODO
+    :tau: TODO
+    :returns: TODO
+
+    """
+    fit_data = np.array(pd.read_csv('../data/' + dynamics + str(degree) +  '/tau_fit.csv', header=None).iloc[:,: ])
+    N_all = fit_data[:, 0]
+    c_all = fit_data[:, 1]
+    fit_c = np.mean(c_all)
+    y = np.exp(2*fit_c/3/sigma**2)
+    N_min = N_all[0]
+    N_min = np.min(y)
+    N_max = np.max(y)
+    plt.semilogy(sigma, y, '--', alpha = alpha, linewidth=linewidth, color='k')
+    plt.fill_between(sigma, N_min, y, color='tab:red', alpha = 0.1, label='single cluster')
+    plt.fill_between(sigma, y, N_max, color='tab:blue',label='multi cluster')
+    plt.xlabel('$\\sigma$', fontsize=fs)
+    plt.ylabel('$N$', fontsize=fs)
+    plt.subplots_adjust(left=0.15, right=0.98, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
+    plt.xticks(fontsize=ticksize)
+    plt.yticks(fontsize=ticksize)
+    plt.legend(fontsize=legendsize)
+    plt.show()
+
+def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit, powerlaw, plot_type, initial_noise=0):
     """TODO: Docstring for tau_all.
 
     :N_set: TODO
@@ -184,7 +267,14 @@ def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit
                 elif N == 1 and dynamics != 'mutual':
                     R = 0
                 if dynamics != 'quadratic' and R == 0.2:
-                    des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                    if initial_noise == 0:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                    elif initial_noise == 'metastable':
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_metastable/'
+                        if not os.path.exists(des):
+                            des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+
+
                 elif dynamics != 'quadratic' and R != 0.2:
                     des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '/'
                 elif dynamics == 'quadratic':
@@ -240,7 +330,24 @@ def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit
             plt.xlabel('R', fontsize=fs)
             # plt.title(f'$c=${c}_$\\sigma=${sigma}',fontsize=fs)
 
-        if R_size == 1  and N_size >=1 and sigma_size >= 1:
+        if R_size == 1 and N_size > 1 and sigma_size > 1:
+            if plot_type == 'tn':
+                tau_plot = tau[:, :, 0]
+                sigma_set = np.array(sigma_set)
+                N_set = np.array(N_set)
+                for i in range(sigma_size):
+                    plt.loglog(N_set, tau_plot[:, i], next(marker), markersize = 8)
+                    if fit:
+                        z = np.polyfit(np.log(N_set), np.log(tau_plot[:, i]), 1, full=True)
+                        k, b = z[0]
+                        error = z[1]
+                        print(k, b, error)
+                        plt.loglog(N_set, np.exp(b) * N_set**k, '--', label=f'$\\sigma={sigma_set[i]}$')
+
+                plt.xlabel('$N$', fontsize = fs)
+                plt.ylabel('Nucleation time $\\langle t_n \\rangle$', fontsize = fs)
+
+        if R_size == 1  and N_size ==1 and sigma_size >= 1:
             tau_plot = tau[:, :, 0]
             sigma_set = np.array(sigma_set)
             N_set = np.array(N_set)
@@ -265,14 +372,15 @@ def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit
                             k, b = z[0]
                             error = z[1]
                             print(k, b, error)
-                            data_df = pd.DataFrame(np.array([N_set[i], k, b, error]).reshape(1, 4))
-                            data_df.to_csv('../data/' + dynamics + str(degree) +  '/tau_fit.csv', mode='a', index=False, header=False)
+                            #data_df = pd.DataFrame(np.array([N_set[i], k, b, error]).reshape(1, 4))
+                            #data_df.to_csv('../data/' + dynamics + str(degree) +  '/tau_fit.csv', mode='a', index=False, header=False)
                             plt.semilogy(1/sigma_set**2, np.exp(k * 1/sigma_set**2) *np.exp(b), '--', label=f'N={N_set[i]}')
                             # plt.semilogy(1/sigma_set**2, np.exp(k * 1/sigma_set**2) *np.exp(b), '--', label=f'R={R_set[i]}')
                         else:
                             plt.semilogy(1/sigma_set**2, tau_plot[i, :],'--', marker=next(marker), markersize=8, label=f'N={N_set[i]}')
                     elif powerlaw == 'scaling_all' or powerlaw == 'scaling_single' or powerlaw == 'scaling_nucleation' or powerlaw == 'scaling_nucleation_inverse':
                         fit_method = 'various'
+                        fit_method = 'uniform'
                         scaling(dynamics, degree, N_set[i], sigma_set, tau_plot[i, :], powerlaw, fit_method)
 
 
@@ -282,32 +390,37 @@ def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit
 
             # plt.title(f'$c=${c}',fontsize=fs)
 
-        if powerlaw == 'exponential_powerlaw':
-            plt.ylabel('lifetime $\\log(\\langle \\tau \\rangle)$', fontsize=fs)
-            plt.xlabel('$\\sigma$', fontsize=fs)
-        elif powerlaw == 'powerlaw':
-            plt.ylabel('lifetime $\\langle \\tau \\rangle$', fontsize=fs)
-            plt.xlabel('$\\sigma$', fontsize=fs)
-        elif powerlaw == 'exponential':
-            if plot_type == 'lifetime':
+            if powerlaw == 'exponential_powerlaw':
+                plt.ylabel('lifetime $\\log(\\langle \\tau \\rangle)$', fontsize=fs)
+                plt.xlabel('$\\sigma$', fontsize=fs)
+            elif powerlaw == 'powerlaw':
                 plt.ylabel('lifetime $\\langle \\tau \\rangle$', fontsize=fs)
-            elif plot_type == 'tn':
-                plt.ylabel('Nucleation time $\\langle t_n \\rangle$', fontsize=fs)
-            plt.xlabel('$1/\\sigma^2$', fontsize=fs)
-        elif powerlaw == 'scaling_all':
-            # plt.xlabel('$e^{c/3\\sigma^2}/\\sqrt{N} $', fontsize =fs)
-            # plt.ylabel('$\\langle \\tau \\rangle e^{-c/3\\sigma^2} $', fontsize= fs )
-            plt.xlabel('$e^{3c/8\\sigma^2}/\\sqrt{N} $', fontsize =fs)
-            plt.ylabel('$\\langle \\tau \\rangle e^{-c/4\\sigma^2} $', fontsize= fs )
-        elif powerlaw == 'scaling_single':
-            plt.ylabel('$N \\langle \\tau \\rangle  $', fontsize =fs)
-            plt.xlabel('$1/\\sigma^2$', fontsize=fs)
-        elif powerlaw == 'scaling_nucleation':
-            plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
-            plt.xlabel('$e^{-c/\\sigma^2}$', fontsize=fs)
-        elif powerlaw == 'scaling_nucleation_inverse':
-            plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
-            plt.xlabel('$e^{c/\\sigma^2}$', fontsize=fs)
+                plt.xlabel('$\\sigma$', fontsize=fs)
+            elif powerlaw == 'exponential':
+                if plot_type == 'lifetime':
+                    plt.ylabel('lifetime $\\langle \\tau \\rangle$', fontsize=fs)
+                elif plot_type == 'tn':
+                    plt.ylabel('Nucleation time $\\langle t_n \\rangle$', fontsize=fs)
+                plt.xlabel('$1/\\sigma^2$', fontsize=fs)
+            """
+            elif powerlaw == 'scaling_all':
+
+                plt.xlabel('$e^{3c/8\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+                plt.ylabel('$\\langle \\tau \\rangle e^{-c/4\\sigma^2} $', fontsize= fs )
+                plt.xlabel('$e^{2c/5\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+                plt.ylabel('$\\langle \\tau \\rangle e^{-c/5\\sigma^2} $', fontsize= fs )
+                plt.xlabel('$e^{c/3\\sigma^2}/\\sqrt{N} $', fontsize =fs)
+                plt.ylabel('$\\langle \\tau \\rangle e^{-c/3\\sigma^2} $', fontsize= fs )
+            elif powerlaw == 'scaling_single':
+                plt.ylabel('$N \\langle \\tau \\rangle  $', fontsize =fs)
+                plt.xlabel('$1/\\sigma^2$', fontsize=fs)
+            elif powerlaw == 'scaling_nucleation':
+                plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
+                plt.xlabel('$e^{-c/\\sigma^2}$', fontsize=fs)
+            elif powerlaw == 'scaling_nucleation_inverse':
+                plt.ylabel('$\\langle \\tau \\rangle  $', fontsize =fs)
+                plt.xlabel('$e^{c/\\sigma^2}$', fontsize=fs)
+            """
 
 
         plt.subplots_adjust(left=0.15, right=0.98, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
@@ -320,6 +433,9 @@ def tau_all(dynamics, N_set, sigma_set, R_set, c, arguments, bins, criteria, fit
 fs = 20
 ticksize = 15
 legendsize=14
+legendsize=11
+alpha = 0.8
+linewidth = 3
 degree =4
 beta_fix = 4
 A1 = 0.01
@@ -329,7 +445,7 @@ x2 = 1.2
 x3 = 5
 
 dynamics_set = ['mutual', 'harvest', 'eutrophication', 'vegetation', 'quadratic']
-c_set = [4, 1.8, 6, 2.7, x2]
+c_set = [4, 1.8, 6, 2.6, x2]
 index = 0
 arguments = (A1, A2, x1, x3)
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 400, 900, 1600, 2500, 3600, 4900, 6400, 8100, 10000, 22500, 40000]
@@ -338,12 +454,14 @@ sigma_set = [0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
 N_set = [2500, 900, 100, 9]
 N_set = [900]
-N_set = [9, 100, 900, 2500]
 N_set = [9, 16, 25, 36, 49, 64, 81, 100]
-N_set = [9, 16, 36, 100]
+N_set = [1]
+N_set = [9, 100, 900, 2500, 10000]
+N_set = [9, 100, 900, 2500, 10000][::-1]
 R_set = [1, 2, 5, 8, 10, 20, 21, 22]
 R_set = [0, 0.00001, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 8, 10, 20, 24]
 R_set = [0, 0.0001, 0.001, 0.01, 0.02, 0.03, 0.04, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26]
+R_set = [0.02]
 R_set = [0.2]
 sigma_set = [6e-6, 7e-6, 8e-6, 9e-6, 1e-5]
 sigma_set = [0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002, 0.003, 0.004, 0.005]
@@ -356,44 +474,149 @@ sigma_set = [0.06, 0.061, 0.062, 0.063, 0.064, 0.065, 0.07, 0.08, 0.09, 0.1]
 sigma_set = [0.06, 0.061, 0.062, 0.063, 0.07]
 sigma_set = [0.065, 0.066, 0.068, 0.07]
 sigma_set = [0.055, 0.057, 0.059, 0.06, 0.07]
-sigma_set = [0.04, 0.05, 0.06, 0.07, 0.08, 0.09]
 sigma_set = [0.02, 0.021, 0.022, 0.023]
+sigma_set = [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5]
+sigma_set = [0.007, 0.008, 0.009, 0.01]
+sigma_set = [0.0055, 0.0057, 0.006, 0.007, 0.008, 0.009]
+sigma_set = [0.06, 0.065, 0.07, 0.08, 0.09, 0.1]
 criteria = 1
 fit = 1
 powerlaw = 'scaling_nucleation'
 powerlaw = 'scaling_all'
 powerlaw = 'exponential'
+plot_type ='tn'
+plot_type = 'heatmap'
 plot_type ='lifetime'
+initial_noise = 'metastable'
+initial_noise = 0
 plot_range = [0, 10000]
-bins = np.logspace(np.log10(plot_range[0] + 0.1), np.log10(plot_range[1]), plot_range[-1] + 1)
 bins = np.arange(plot_range[0], plot_range[1], 1) 
-# tau_all(dynamics_set[index], N_set, sigma_set, R_set, c_set[index], arguments, bins, criteria, fit, powerlaw, plot_type)
-plt.show()
+bins = np.logspace(np.log10(plot_range[0] + 0.1), np.log10(plot_range[1]), plot_range[-1] + 1)
+# tau_all(dynamics_set[index], N_set, sigma_set, R_set, c_set[index], arguments, bins, criteria, fit, powerlaw, plot_type, initial_noise)
+# plt.show()
 
 N_sets = [[9], [100], [900], [2500], [1], [2]]
+N_sets = [[1], [100], [900], [2500], [10000]]
 N_sets = [[9], [100], [900], [2500], [10000]]
-sigma_sets = [[0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.025], [0.02, 0.021, 0.022, 0.025]]
-sigma_sets = [[0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.025], [0.018, 0.019, 0.02, 0.021, 0.022], [0.017, 0.018, 0.019, 0.02, 0.021], [0.017, 0.018, 0.019, 0.02]]
 
 sigma_sets = [[], [], [], [], []]
 
-sigma_sets = [[0.06, 0.061, 0.062, 0.063, 0.07], [0.06, 0.061, 0.062, 0.063, 0.064, 0.065, 0.07], [0.055, 0.057, 0.059, 0.06, 0.07], [0.055, 0.057, 0.059, 0.06, 0.07], [0.07]]
-sigma_sets = [sigma_sets[i] + [0.08, 0.09, 0.1] for i in range(5)]
 
-sigma_sets = [[0.007, 0.008, 0.009, 0.01, 0.02], [0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02]]
 
-"mutual_both"
-sigma_sets = [[0.06, 0.061, 0.062, 0.063], [0.06, 0.061, 0.062, 0.063, 0.064, 0.065], [0.055, 0.057, 0.059, 0.06], [0.055, 0.057, 0.059, 0.06], [0.054, 0.055, 0.056, 0.057, 0.06]]
-sigma_sets = [sigma_sets[i] + [0.07, 0.08, 0.085, 0.09, 0.095, 0.1, 0.15] for i in range(5)]
+
 
 "mutual_multi"
 sigma_sets = [[0.08, 0.083, 0.085, 0.087, 0.09, 0.092, 0.095, 0.097, 0.1]]*3
 
+
+"eutrophication_multi_R0.2"
+sigma_sets = [[], [], [], [], []]
+sigma_sets = [sigma_sets[i] + [0.023, 0.024, 0.025, 0.026, 0.027, 0.028, 0.029, 0.03] for i in range(5)]
+
+
+
+
+"eutrophication_single_R0.2"
+sigma_sets = [[0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.025], [0.018, 0.019, 0.02, 0.021, 0.022], [0.017, 0.018, 0.019, 0.02], [0.017, 0.018, 0.019, 0.02], [0.016, 0.018]]
+
+
+
+"eutrophication_both_R0.2"
+sigma_sets = [[0.017], [], [0.017], [0.017], [0.016]]
+sigma_sets = [sigma_sets[i] + [0.018, 0.019, 0.02, 0.021, 0.022, 0.025, 0.03, 0.05] for i in range(5)]
+
+"eutrophication_both_R0.02"
+sigma_sets = [[0.007, 0.008, 0.009, 0.01, 0.02], [0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], []]
+
+
+"mutual_multi"
+sigma_sets = [[0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5]]*5
+sigma_sets = [[0.08, 0.1]]*5
+
+
+"mutual_tn"
+sigma_sets = [[0.06, 0.063, 0.065, 0.07], [0.06, 0.063, 0.065, 0.07], [0.055, 0.057, 0.06, 0.065, 0.07], [0.055, 0.057, 0.06, 0.065, 0.07], [0.055, 0.057, 0.06, 0.065, 0.07]]
+sigma_sets = [sigma_sets[i] + [] for i in range(5)]
+
+"eutrophication_tn_R0.02"
+sigma_sets = [[0.007, 0.008, 0.009], [0.0065, 0.007, 0.008, 0.009], [0.006, 0.0065, 0.007, 0.008, 0.009], [0.006, 0.0065, 0.007, 0.008, 0.009], [0.006, 0.0065, 0.007, 0.008, 0.009]]
+
+"eutrophication_both_R0.02"
+sigma_sets = [[0.007, 0.008, 0.009, 0.01, 0.02], [0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02], [0.0057, 0.006, 0.0065, 0.007, 0.008, 0.009, 0.01, 0.02]]
+
+
+"harvest_tn_R0.02"
+sigma_sets = [[0.035, 0.037, 0.04], [0.035, 0.037, 0.04,], [0.032, 0.033, 0.035, 0.037, 0.04], [0.031, 0.032, 0.033, 0.035, 0.037, 0.04], [0.03, 0.031, 0.032, 0.033, 0.035, 0.037]]
+
+sigma_sets = [sigma_sets[i] + [] for i in range(5)]
+
+"vegetation_tn_R0.02"
+sigma_sets = [[0.0055, 0.0057, 0.006], [0.0055, 0.0057, 0.006], [0.0051, 0.0053, 0.0055, 0.0057, 0.006], [0.005, 0.0051, 0.0053, 0.0055, 0.0057, 0.006], [0.0049, 0.005, 0.0051, 0.0053, 0.0055, 0.0057, 0.006]]
+
+
+"eutrophication_single_R0.02"
+sigma_sets = [[0.007, 0.008, 0.009, 0.01], [0.0065, 0.007, 0.008, 0.009], [0.006, 0.0065, 0.007, 0.008], [0.006, 0.0065, 0.007], [0.0057, 0.006, 0.0065]]
+
+
+
+"harvest_both_R0.02"
+sigma_sets = [[0.035, 0.037, 0.04, 0.045, 0.05, 0.06, 0.07], [0.033, 0.035, 0.037, 0.04, 0.045, 0.05, 0.06, 0.07], [0.032, 0.033, 0.035, 0.037, 0.04, 0.045, 0.05, 0.06, 0.07], [0.031, 0.032, 0.033, 0.035, 0.037, 0.04, 0.045, 0.05, 0.06, 0.07 ], [0.03, 0.031, 0.032, 0.033, 0.035, 0.037, 0.04, 0.045, 0.05, 0.06, 0.07]]
+sigma_sets = [sigma_sets[i] + [0.08, 0.09] for i in range(5)]
+
+"harvest_both_R0.02"
+sigma_sets = [[], [], [], [], []]
+sigma_sets = [sigma_sets[i] + [0.07, 0.08, 0.09, 0.1] for i in range(5)]
+
+"harvest_single_R0.02"
+sigma_sets = [[0.035, 0.037, 0.04, 0.045], [0.033, 0.035, 0.037, 0.04], [0.032, 0.033, 0.035, 0.037], [0.031, 0.032, 0.033, 0.035], [0.03, 0.031, 0.032, 0.033]]
+
+
+"vegetation_both_R0.02"
+sigma_sets = [[0.0057, 0.006, 0.007, 0.008, 0.009, 0.01, 0.015], [0.0055, 0.0057, 0.006, 0.007, 0.008, 0.009, 0.01, 0.015], [0.0051, 0.0053, 0.0055, 0.0057, 0.006, 0.007, 0.008, 0.009, 0.01, 0.015], [0.005, 0.0051, 0.0053, 0.0055, 0.0057, 0.006, 0.007, 0.008, 0.009, 0.01, 0.015], [0.0048, 0.0049, 0.005, 0.0051, 0.0053, 0.0055, 0.0057, 0.006, 0.007, 0.008, 0.009, 0.01, 0.015]]
+
+"vegetation_single_R0.02"
+sigma_sets = [[0.0057, 0.006, 0.0065, 0.007], [0.0055, 0.0057, 0.006, 0.0065], [0.0051, 0.0053, 0.0055, 0.0057], [0.005, 0.0051, 0.0053, 0.0055], [0.0048, 0.0049, 0.005, 0.0051]]
+
+
+
+
+"mutual_multi"
+sigma_sets = [[0.08, 0.085, 0.09, 0.095, 0.1]]*5
+
+
+"mutual_both"
+sigma_sets = [[0.06, 0.063], [0.06, 0.063], [0.055, 0.057, 0.06], [0.055, 0.057, 0.06], [0.053, 0.054, 0.055,  0.057, 0.06]]
+sigma_sets = [sigma_sets[i] + [0.065, 0.07, 0.08, 0.085, 0.09, 0.095, 0.1] for i in range(5)]
+
 "mutual_single"
-sigma_sets = [[0.06, 0.061, 0.062, 0.063, 0.07], [0.06, 0.061, 0.062, 0.063, 0.064, 0.065, 0.07], [0.055, 0.057, 0.059, 0.06], [0.055, 0.057, 0.059, 0.06], [0.053, 0.054, 0.055, 0.056, 0.057]]
+sigma_sets = [[0.063, 0.065, 0.07], [0.06, 0.063, 0.065, 0.07], [0.055, 0.057, 0.059, 0.06, 0.065], [0.055, 0.057, 0.059, 0.06, 0.065], [0.054, 0.055, 0.056, 0.057]]
 
 for N_set, sigma_set in zip(N_sets[:], sigma_sets[:]):
-    tau_all(dynamics_set[index], N_set, sigma_set, R_set, c_set[index], arguments, bins, criteria, fit, powerlaw, plot_type)
+    tau_all(dynamics_set[index], N_set, sigma_set, R_set, c_set[index], arguments, bins, criteria, fit, powerlaw, plot_type, initial_noise)
+
+"mutual_separation"
+sigma1_set = [[0.06, 0.061, 0.062, 0.063, 0.07, 0.08, 0.085, 0.09], [0.06, 0.061, 0.062, 0.063, 0.064, 0.065, 0.07, 0.08], [0.055, 0.057, 0.059, 0.06], [0.055, 0.057, 0.06], [0.053, 0.055, 0.057, 0.06]]
+sigma2_set = [[], [], [0.08, 0.085, 0.09, 0.095, 0.1], [0.08, 0.085, 0.09, 0.095, 0.1], [0.07, 0.08, 0.085, 0.09, 0.095, 0.1]]
+
+
+"harvest_separation"
+sigma1_set = [[0.035, 0.037, 0.04, 0.045, 0.05], [0.035, 0.037, 0.04, 0.045], [0.032, 0.035, 0.037], [0.031,0.033, 0.035], [0.03, 0.031, 0.032, 0.033]]
+sigma2_set = [[], [0.06, 0.07, 0.08], [0.05, 0.06, 0.07, 0.08], [0.05, 0.06, 0.07, 0.08], [0.045, 0.05, 0.06, 0.07, 0.08]]
+
+"eutrophication_separation"
+sigma1_set = [[0.007, 0.008, 0.009, 0.01], [0.0065, 0.007, 0.008], [0.006, 0.0065, 0.007], [0.006, 0.0065], [0.0057, 0.006]]
+sigma2_set = [[], [], [0.01], [0.009, 0.01], [0.008, 0.009, 0.01]]
+
+"vegetation_separation"
+sigma1_set = [[0.0055, 0.006, 0.007, 0.008], [0.0055, 0.0057, 0.006, 0.007], [0.005, 0.0051, 0.0053, 0.0055], [0.005, 0.0051, 0.0053, 0.0055], [0.0049, 0.005, 0.0051]]
+sigma2_set = [[], [0.009, 0.01], [0.007, 0.008, 0.009, 0.01], [0.007, 0.008, 0.009, 0.01], [0.006, 0.007, 0.008, 0.009, 0.01]]
+# separation(dynamics_set[index], N_sets, sigma1_set, sigma2_set)
+sigma_set = np.array([0.05, 0.06, 0.07, 0.08, 0.09, 0.1])
+index = 1
+sigma_set = np.array([0.025, 0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.065, 0.07])
+index = 2
+sigma_set = np.arange(0.005, 0.014, 0.001)
+# separation_fill(dynamics_set[index], sigma_set)
 
 '''
 N_set = [100]
