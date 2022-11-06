@@ -8,9 +8,14 @@ import matplotlib as mpl
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan', 'tab:purple', 'tab:olive']) * cycler(linestyle=['-']))
 
-fs = 20
-ticksize = 15
-legendsize = 14
+plt.rc('text', usetex=True)
+plt.rc('font', family='arial', weight='bold')
+
+fs = 35
+ticksize = 25
+legendsize = 22
+lw = 3
+alpha = 0.8
 def plot_nucleation(dynamics, degree, c, N, sigma, initial_noise): 
     """TODO: Docstring for plot_nucleation.
 
@@ -52,7 +57,7 @@ def plot_nucleation(dynamics, degree, c, N, sigma, initial_noise):
     ax1.set_xlabel('t', fontsize=fs)
     ax1.set_ylabel('nucleation rate', fontsize = fs)
     # ax1.plot(t[: index], nucleation_plot, color=color, label='total')
-    ax1.plot(t[: index], nucleation_plot/number_l_plot * 1e4, 'o--', color=color, label='effective')
+    ax1.plot(t[: index], nucleation_plot/number_l_plot * 1e4, 'o--', color=color, label='effective', ms= 10, lw=lw, alpha=alpha)
     # ax1.plot(t[: index], nucleation_plot/number_l_mean[1:index+1] * 1e4, '--', color=color, label='effective')
     ax1.tick_params(axis='y', labelcolor=color, labelsize=ticksize)
     ax1.tick_params(axis='x', labelsize=ticksize)
@@ -60,12 +65,16 @@ def plot_nucleation(dynamics, degree, c, N, sigma, initial_noise):
     color = 'tab:blue'
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     ax2.set_ylabel('average $\\rho_L$', fontsize = fs)  # we already handled the x-label with ax1
-    ax2.plot(t[: index], low_plot, color=color)
+    ax2.plot(t[: index], low_plot, color=color, lw=lw, alpha=alpha)
+    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     ax2.tick_params(axis='y', labelcolor=color, labelsize = ticksize)
+    ax2.yaxis.get_offset_text().set_fontsize(ticksize-3)
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     # ax1.legend(fontsize=legendsize)
-    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-    plt.subplots_adjust(left=0.15, right=0.87, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
+    plt.subplots_adjust(left=0.20, right=0.87, wspace=0.25, hspace=0.25, bottom=0.20, top=0.93)
+    plt.savefig("../summery/F5c.svg", format="svg") 
+ 
+
 
     #plt.show()
     return None
@@ -199,8 +208,8 @@ N = 2500
 N = 10000
 sigma = 0.08
 sigma_set = [0.01, 0.03, 0.04, 0.05, 0.08, 0.09, 0.1, 0.11, 0.12]
-initial_noise = 0
 initial_noise = 'metastable'
+initial_noise = 0
 plot_type = 'nucleation'
 
 plot_nucleation(dynamics, degree, c, N, sigma, initial_noise)

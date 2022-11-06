@@ -1,3 +1,10 @@
+import os
+os.environ['OPENBLAS_NUM_THREADS'] ='1'
+import sys
+sys.path.insert(1, '/home/mac/RPI/research/')
+
+from mutual_framework import  betaspace
+
 import main
 import numpy as np 
 from scipy.integrate import odeint 
@@ -16,7 +23,7 @@ from scipy.interpolate import interp1d
 import shutil
 
 degree = 4
-cpu_number = 10
+cpu_number = 8
 dt = 0.01
 K = 10
 a = 0.5
@@ -434,12 +441,11 @@ def check_exist_T(des):
         T.append(t)
     return np.max(T)
 
-def system_collect(store_index, N, index, degree, A_interaction, strength, x_initial, T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise):
+def system_collect(store_index, N, index, degree, A, A_interaction, strength, x_initial, T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise, effective_noise):
     """one realization to run sdeint and save dynamics
 
     """
     evolution_file = des_evolution + f'realization{store_index}_T_{T_start}_{T_end}'
-    # local_state = np.random.RandomState(store_index + T_start * int(parallel_size_all/T_every) ) # avoid same random process.
     local_state = np.random.RandomState(store_index)
     if initial_noise == 'metastable' and T_start == 0:
         pre_t = np.arange(0, 50, dt)
@@ -450,30 +456,29 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
 
     for i in range(int(T_start/T_every)+1):
         noise= local_state.normal(0, np.sqrt(dt), (np.size(t)-1, N)) * strength
-    if N == 1:
+    if effective_noise:
+        _, noise_1D = betaspace(A, noise)
         dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_1D']
-        dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments[:-1])), x_initial, t, dW=noise.reshape(np.size(noise), 1) ) 
-        '''
-        des = '../data/' + 'mutual' + str(4) + f'/size1/c{c}/' 
-        xy_relation = np.array(pd.read_csv(des + 'xy_relation.csv', header=None).iloc[:, :])
-        f = interp1d(xy_relation[0], xy_relation[1])
-
-        dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_beta']
-        dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments[:-1], f, xy_relation[0, 0], xy_relation[0, -1] )), x_initial, t, dW=noise.reshape(np.size(noise), 1) ) 
-        '''
+        dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments[:-1])), x_initial, t, dW=noise_1D.reshape(np.size(noise_1D), 1) ) 
         dyn_ave = np.mean(dyn_all, -1)
         x_high = np.mean(dyn_all[-1])
-
-    elif N == 2:
-        dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_ij']
-        noise[:, 1] = noise[:, 1] / 2 
-        dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments)), x_initial, t, dW=noise )
-        x_high = dyn_all[-1, 0]
-        dyn_ave = dyn_all[:, 0]
     else:
-        dyn_all = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
-        dyn_ave = np.mean(dyn_all, -1)
-        x_high = np.mean(dyn_all[-1])
+        if N == 1:
+            dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_1D']
+            dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments[:-1])), x_initial, t, dW=noise.reshape(np.size(noise), 1) ) 
+            dyn_ave = np.mean(dyn_all, -1)
+            x_high = np.mean(dyn_all[-1])
+
+        elif N == 2:
+            dynamics = globals()[dynamics.__name__[: dynamics.__name__.find('_')] + '_ij']
+            noise[:, 1] = noise[:, 1] / 2 
+            dyn_all = main.sdesolver(main.close(dynamics, *(c, arguments)), x_initial, t, dW=noise )
+            x_high = dyn_all[-1, 0]
+            dyn_ave = dyn_all[:, 0]
+        else:
+            dyn_all = main.sdesolver(main.close(dynamics, *(N, index, degree, A_interaction, c, arguments)), x_initial, t, dW = noise)
+            dyn_ave = np.mean(dyn_all, -1)
+            x_high = np.mean(dyn_all[-1])
     x_high_df = pd.DataFrame(np.ones((1, 1)) * x_high)
     x_high_df.to_csv(des_high + f'realization{store_index}.csv', mode='a', index=False, header=False)
     if (transition_to_high == 1 and x_high > criteria) or (transition_to_high == 0 and x_high < criteria):
@@ -486,7 +491,7 @@ def system_collect(store_index, N, index, degree, A_interaction, strength, x_ini
     del noise, dyn_all, x_high, dyn_ave
     return None
 
-def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise):
+def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise, effective_noise=False):
     """parallel computing or series computing 
 
     :A: adjacency matrix 
@@ -501,12 +506,18 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
     """
     parallel_size = np.size(parallel_index)
     N = np.size(A, -1)
-    if N == 1 or N == 2:
+    if effective_noise:
+        M = 1
         index = []
         A_interaction = []
     else:
-        index = np.where(A!=0)
-        A_interaction = A[index].reshape(N, degree)
+        M = N
+        if N == 1 or N == 2:
+            index = []
+            A_interaction = []
+        else:
+            index = np.where(A!=0)
+            A_interaction = A[index].reshape(N, degree)
     t = np.linspace(T_start, T_end, int((T_end-T_start)/dt + 1))
     des_evolution = des + 'evolution/'
     des_ave = des + 'ave/'
@@ -515,22 +526,22 @@ def system_parallel(A, degree, strength, T_start, T_end, dt, parallel_index, cpu
         if not os.path.exists(i):
             os.makedirs(i)
     if T_start == 0:
-        x_start = np.broadcast_to(x_initial, (parallel_size, N))
+        x_start = np.broadcast_to(x_initial, (parallel_size, M))
     else:
-        x_start = np.zeros((parallel_size, N))
+        x_start = np.zeros((parallel_size, M))
         for realization, i in zip(parallel_index, range(parallel_size)):
             evolution_file = des_evolution + f'realization{realization}_T_{2*T_start-T_end}_{T_start}.npy'
             x_start[i] = np.load(evolution_file)[-1]
             os.remove(evolution_file)
     if cpu_number > 0:
         p = mp.Pool(cpu_number)
-        p.starmap_async(system_collect, [(realization, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise) for realization, i in zip(parallel_index, range(parallel_size))]).get()
+        p.starmap_async(system_collect, [(realization, N, index, degree, A, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise, effective_noise) for realization, i in zip(parallel_index, range(parallel_size))]).get()
         p.close()
         p.join()
         del p
     else:
         for i, i_index in zip(range(parallel_size), parallel_index):
-            system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise)
+            system_collect(i_index, N, index, degree, A_interaction, strength, x_start[i], T_start, T_end, t, dt, des_evolution, des_ave, des_high, dynamics, c, arguments, transition_to_high, criteria, remove, initial_noise, effective_noise)
     del x_start
     return None
 
@@ -635,6 +646,90 @@ def T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial
                     if len(parallel_index) != 0:
                         t1 =time.time()
                         system_parallel(A, degree, sigma, t_start, t_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise)
+                        t2 =time.time()
+                        print('generate data:', dynamics.__name__, N, sigma, arguments[-1], t_start, t_end, parallel_index, t2 -t1)
+                    else:
+                        break
+                if del_evo == 1:
+                    shutil.rmtree(des+ 'evolution/')
+            cal_rho_lifetime(des, T_start, T_end, T_every, dt, transition_to_high, N, degree, dynamics, c, trial_low, trial_high, arguments)
+
+    del A
+    return None
+
+def T_effective(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments, transition_to_high, low, high, one_transition, initial_noise):
+    """TODO: Docstring for T_continue.
+
+    :T_start: TODO
+    :T_end: TODO
+    :T_every: TODO
+    :initial_noise: x_l is calculated without noise if 0; input argument if x_l is given
+    :returns: TODO
+
+    """
+    if remove == 0:
+        input_variable = input("Are you sure that you want to keep data? input 'yes' if you want to keep data, input 'no' to break.")
+        if input_variable == 'yes':
+            remove == 0
+        elif input_variable == 'no':
+            return None
+        else:
+            remove == 1
+    if continue_evolution == 1:
+        input_continue = input('do you want to continue evolution T?')
+        if input_continue == 'yes':
+            continue_evolution = 1
+        elif input_continue == 'no':
+            return None
+
+    T_section = int((T_end - T_start) / T_every)
+    parallel_section = int((parallel_index_initial[-1] + 1 - parallel_index_initial[0])/parallel_every )
+    for N in N_set:
+        "unweighted adjacency matrix"
+        A = network_ensemble_grid(9, int(np.sqrt(9)))
+        xs_low, xs_high = stable_state(A, degree, dynamics, c, low, high, arguments)
+        xs_low_mean = np.mean(xs_low)
+        xs_high_mean = np.mean(xs_high)
+        xs_low = xs_low_mean 
+        xs_high = xs_high_mean 
+        A = network_ensemble_grid(N, int(np.sqrt(N)))
+        if transition_to_high == 1:
+            "change initial value according to the noise if initial state is given"
+            x_initial = xs_low
+        elif transition_to_high == 0:
+            x_initial = xs_high
+        criteria = (xs_low_mean + xs_high_mean) / 2
+
+        for sigma in sigma_set:
+            des = '../data/' + dynamics.__name__[: dynamics.__name__.find('_')]+ str(degree) + '/effective/' + 'size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma)
+            if dynamics == mutual_lattice:
+                 des = des + '/'
+            elif dynamics != quadratic_lattice and arguments[-1] != 0.2:
+                des = des + '_R' + str(arguments[-1]) + '/'
+            elif dynamics != quadratic_lattice and arguments[-1] == 0.2:
+                des = des + '/'
+            if not os.path.exists(des):
+                os.makedirs(des)
+
+            if parallel_index_initial[0] < check_exist_index(des):
+                if continue_evolution == 1:
+                    if check_exist_T(des) != T_start :
+                        T_start = check_exist_T(des)
+                        print(T_start)
+                elif continue_evolution == 0:
+                    print('simulation data already exists!')
+                    break
+
+            for j in range(parallel_section):
+                parallel_index = parallel_index_initial[j*parallel_every: (j+1)*parallel_every]
+                for i in range(T_section):
+                    t_start = T_start + i * T_every
+                    t_end = T_start + (i+1) * T_every
+                    if t_start != 0:
+                        _, parallel_index = transition_index(des, parallel_index, transition_to_high, criteria)
+                    if len(parallel_index) != 0:
+                        t1 =time.time()
+                        system_parallel(A, degree, sigma, t_start, t_end, dt, parallel_index, cpu_number, des, dynamics, x_initial, c, arguments, transition_to_high, criteria, remove, initial_noise, 1)
                         t2 =time.time()
                         print('generate data:', dynamics.__name__, N, sigma, arguments[-1], t_start, t_end, parallel_index, t2 -t1)
                     else:
@@ -1136,36 +1231,36 @@ def vegetation_preprocess(x, t, N, index, degree, A_interaction, c, arguments):
     return dxdt
 
 
-parallel_size_all = 1
+parallel_size_all = 90
 dynamics_all_set = [mutual_lattice, harvest_lattice, eutrophication_lattice, vegetation_lattice, quadratic_lattice]
-parallel_index_initial = np.arange(parallel_size_all)
+parallel_index_initial = np.arange(parallel_size_all) + 10 
 trial_low = 0.1
 trial_high = 10
 dynamics_set = []
 arguments_set = []
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 900, 2500]
-T_every = 100
+T_every = 1000
 
 continue_evolution = 0
-parallel_every = 1
+parallel_every = 10
 T_start = 0
-T_end = 100
+T_end = 1000
 transition_to_high_set = [1]
-one_transition = 0
-initial_noise = 0
+one_transition = 0 # initial value: one is high state
 initial_noise = 'metastable'
-index_set = [3]
-c_set = [4]
-c_set = [6]
-c_set = [1.8]
+initial_noise = 0
+index_set = [2]
 c_set = [2.6]
+c_set = [1.8]
+c_set = [4]
+c_set = [1.1]
 sigma_set_all = [[0.009, 0.011, 0.012, 0.013, 0.014, 0.016, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.2, 0.3, 0.4, 0.5, 1, 5, 10, 0.007, 0.006 ]]
-sigma_set_all = [[0.01]]
+sigma_set_all = [[0.2]]
 N_set = [900]
 N_set = [2500]
-N_set = [16, 25, 36, 49, 64, 81]
 N_set = [10000]
 N_set = [100]
+N_set = [1]
 R_set = [0.02]
 
 arguments_all_set = [(B, C, D, E, H, K_mutual), (r, K), (a, r), (r, rv, hv), (A1, A2, x1, x3)]
@@ -1176,6 +1271,8 @@ t1 = time.time()
 for R in R_set:
     for dynamics, c, arguments, sigma_set, transition_to_high in zip(dynamics_set, c_set, arguments_set, sigma_set_all, transition_to_high_set):
         T_continue(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high, one_transition, initial_noise)
+        #T_effective(N_set, sigma_set, T_start, T_end, T_every, parallel_index_initial, parallel_every, remove, del_evo, continue_evolution, dynamics, c, arguments + (R,), transition_to_high, trial_low, trial_high, one_transition, initial_noise)
+        pass
 t2 = time.time()
 print(t2 -t1)
 '''

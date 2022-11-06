@@ -10,14 +10,22 @@ import seaborn as sns
 import itertools
 from read_lifetime import tau_fit, tau_average, tau_combine
 from matplotlib.colors import LogNorm
-linestyle = itertools.cycle(('-', '-.', '--', '--')) 
-mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
+import matplotlib.ticker 
 
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:red', 'tab:blue', 'tab:green', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-']))
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:red', 'tab:orange', 'tab:grey']) * cycler(linestyle=['-', '-']))
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan', 'tab:green', 'tab:red']) * cycler(linestyle=['-']))
 mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:green', 'tab:blue', 'tab:red', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-', '-']))
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['tab:green', 'tab:blue', 'tab:red', 'tab:orange', 'tab:brown', 'tab:pink', 'grey', 'tab:cyan']) * cycler(linestyle=['-']))
+mpl.rcParams['axes.prop_cycle'] = (cycler(color=['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']) * cycler(linestyle=['-', '-']))
+linestyle = itertools.cycle(('-', '-.', '--', '--')) 
+linestyle = itertools.cycle(('-', '-.', '--')) 
+marker = itertools.cycle(('X', 'o'))
 
+
+plt.rc('text', usetex=True)
+plt.rc('font', family='arial', weight='bold')
 
 def heatmap(des, realization_index, N, plot_range, plot_interval, dt, linewidth=0):
     """plot and save figure for animation
@@ -37,19 +45,28 @@ def heatmap(des, realization_index, N, plot_range, plot_interval, dt, linewidth=
     data = np.load(des_file)
     xmin = np.mean(data[0])
     xmax = np.mean(data[-1])
+    #xmin = np.min(data)
+    #xmax = np.max(data)
     rho = (data - xmin) / (xmax - xmin)
     for i in np.arange(0, plot_range[1]-plot_range[0], plot_interval):
         data_snap = rho[int(i/dt)].reshape(int(np.sqrt(N)), int(np.sqrt(N)))
+        #fig = sns.heatmap(data_snap, vmin=0, vmax=1, linewidths=linewidth, cbar_kws = {"orientation" : "horizontal"})
+
         fig = sns.heatmap(data_snap, vmin=0, vmax=1, linewidths=linewidth)
+        cax = plt.gcf().axes[-1]
+        cax.tick_params(labelsize=0.3 * fs)
         """
         data_snap = abs(data_snap)
         data_snap = np.log(data_snap)
         fig = sns.heatmap(data_snap, vmin=-4, vmax=0, linewidths=linewidth)
         """
         fig = fig.get_figure()
-        plt.subplots_adjust(left=0.02, right=0.98, wspace=0.25, hspace=0.25, bottom=0.02, top=0.98)
+        # plt.subplots_adjust(left=0.02, right=0.98, wspace=0.25, hspace=0.25, bottom=0.02, top=0.98)
+        plt.subplots_adjust(left=0.15, right=0.88, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
         plt.axis('off')
+        #fig.patch.set_alpha(0.)
         # plt.title('time = ' + str(round(i, 2)) )
+        #fig.savefig(des_sub + str(int(i/plot_interval)) + '.svg', format="svg")
         fig.savefig(des_sub + str(int(i/plot_interval)) + '.png')
 
         plt.close()
@@ -89,7 +106,6 @@ def rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval
 
     if ave == 1:
         rho_plot = np.mean(rho_plot, -1)
-
         filenames = os.listdir(des + 'ave/')
         filenum = len(filenames)
         T_start = []
@@ -111,8 +127,8 @@ def rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval
                 rho_average[i, :dT*interval[0] ] = np.load(des + 'ave/' + ave_file)[::int(100/interval[0])][:-1]
             rho_average[i, (t0+dT)*interval[0]:] = x_H
 
-        rho_plot = (rho_average - x_L)/(x_H - x_L)
-        rho_plot = np.mean(rho_plot, 0)
+        rho_ave = np.mean(rho_average, 0) 
+        rho_plot = (rho_ave - x_L)/(x_H - x_L)
 
         lifetime = tau_combine(des, np.arange(0, 1000, 1), 1)
         t = np.linspace(0, (Tmax + dT), (Tmax + dT)*interval[0])
@@ -126,24 +142,30 @@ def rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval
                     plt.semilogy(t_tau_plot, 1-rho_plot_plot, '.', markersize = 3)
 
                 else:
-                    plt.semilogy(t_tau_plot, 1-rho_plot_plot, linewidth=3, alpha = 0.8, label=label)
-                    plt.legend(fontsize=legendsize)
+                    plt.semilogy(t_tau_plot, 1-rho_plot_plot, linewidth=lw, alpha = alpha, linestyle=next(linestyle), label=label)
+                    plt.legend(frameon=False, fontsize = legendsize)
                 plt.xlabel('$(t/\\tau)^3$' , fontsize = fs)
             elif fit == 1:
                 if fit_rho == '3':
                     t_tau = (t/lifetime) ** 3
                     t_tau_plot = t_tau[::interval[1]]
                     rho_plot_plot = rho_plot[::interval[1]]
-                    plt.semilogy(t_tau_plot, 1-rho_plot_plot, '.', markersize = 3)
-                    fit_index = np.where(((1-rho_plot)<5e-1) &((1-rho_plot)>1e-2))[0]
-                    x_fit = t_tau[fit_index]
-                    y_fit = np.log(1 - rho_plot[fit_index])
+                    rho_equal_space = [np.argmin(np.abs(np.log10(1-rho_plot+1e-4) - i)) for i in np.arange(0, -4, -0.4)]
+                    plt.semilogy(t_tau[rho_equal_space]  , 1-rho_plot[rho_equal_space], next(marker), markersize = 10, linestyle='--', linewidth=lw, label=label)
+
+                    fit_index = np.where(((1-rho_plot)>1e-4))[0]
+                    x_fit = t_tau[rho_equal_space]
+                    y_fit = np.log(1 - rho_plot[rho_equal_space])
                     z = np.polyfit(x_fit, y_fit, 1)
-                    print(z)
-                    plt.semilogy(x_fit, np.exp(z[0]*x_fit+z[1]), label=label)
-                    plt.legend(fontsize=legendsize)
+                    y_theory = np.exp(z[0]*x_fit+z[1])
+
+                    uncertainty_std = np.sqrt(1/(len(x_fit) -2) * np.sum((y_fit - np.log(y_theory)) ** 2) )
+                    print(z, uncertainty_std)
+                    plt.semilogy(x_fit, y_theory, linestyle='--', alpha = alpha, linewidth=lw)
+                    plt.legend( frameon=False, fontsize = legendsize)
                     plt.xlabel('$(t/\\tau)^3$' , fontsize = fs)
                 elif fit_rho == 'loglog':
+                    "not useful loglog fit"
                     t_tau = (t/lifetime) 
                     if np.sum(rho_plot<0):
                         index_start = np.where(rho_plot<0)[0][-1] + 1
@@ -162,7 +184,7 @@ def rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval
                     z = np.polyfit(np.log(x_fit), np.log(y_fit), 1)
                     print(z)
                     plt.loglog(x_fit, np.exp(z[0]*np.log(x_fit)+z[1]), label=label)
-                    plt.legend(fontsize=legendsize)
+                    plt.legend(frameon=False, fontsize = legendsize)
                     plt.xlabel('$(t/\\tau)$', fontsize = fs)
 
 
@@ -170,14 +192,14 @@ def rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval
             if label == None:
                 plt.plot(t, 1 - rho_plot)
             else:
-                plt.plot(t, 1 - rho_plot, linestyle=next(linestyle), alpha = 0.8, linewidth=3, label=label)
-                plt.legend(fontsize=legendsize)
+                plt.plot(t, 1 - rho_plot, linestyle=next(linestyle), alpha = alpha, linewidth=lw, label=label)
+                plt.legend(frameon=False, fontsize = legendsize)
             plt.xlabel('$t$', fontsize = fs)
 
     else:
         if log == 0 and label == None:
             plt.plot(t, 1 - rho_plot, color=color, linewidth=1)
-            plt.plot(t, 1 - rho_plot[:, 0], color='k', linewidth = 3)
+            plt.plot(t, 1 - rho_plot[:, 1], color='k', linewidth = lw)
             plt.xlabel('$t$', fontsize = fs)
         else:
             print('wrong arguments')
@@ -213,12 +235,12 @@ def P_from_data(des, plot_num, bins, label, title, log, fit):
                 plt.semilogy(bins, 1-p)
             else:
                 plt.semilogy(bins, 1-p, label=label)
-                plt.legend(fontsize=legendsize)
+                plt.legend(frameon=False, fontsize = legendsize)
         elif fit == 1:
             if label == None:
                 plt.semilogy(bins, 1-p, '.', linewidth=1)
             else:
-                plt.semilogy(bins, 1-p, '.', markersize=3)
+                plt.semilogy(bins, 1-p, '.', markersize=1)
             num = np.zeros(np.size(bins))
             for i in range(np.size(bins)):
                 num[i] = np.sum(tau<bins[i])
@@ -233,21 +255,19 @@ def P_from_data(des, plot_num, bins, label, title, log, fit):
                 end = np.size(bins)
             z = np.polyfit(bins[start:end], np.log(1-p[start:end]), 1, full=True)
             k, b =z[0]
-            print(z[1])
-            plt.semilogy(bins[start:], np.exp(bins[start:] * k + b), label=label)
-            plt.legend(fontsize=legendsize)
-            print(-1/k)
+            plt.semilogy(bins[start:], np.exp(bins[start:] * k + b), label=label, linewidth=lw, alpha = 1, linestyle = next(linestyle))
+            plt.legend(frameon=False, fontsize = legendsize)
             #return -1/z[0]
 
     else:
         if label == None:
             plt.plot(bins, 1-p)
         else: 
-            plt.plot(bins, 1-p, alpha = 0.8, linewidth=3, label=label)
-            plt.legend(fontsize=legendsize)
+            plt.plot(bins, 1-p, alpha = alpha, linewidth=lw, label=label, linestyle = next(linestyle))
+            plt.legend(frameon=False, fontsize = legendsize)
 
-    plt.ylabel('$p_{not}$',fontsize=fs) 
-    plt.xlabel('t', fontsize=fs)
+    plt.ylabel('$P_{\\textrm{not}}$',fontsize=fs) 
+    plt.xlabel('$t$', fontsize=fs)
     # plt.title(title , fontsize=fs)
 
     return None
@@ -297,7 +317,8 @@ def tn_N(dynamics, N_set, c, sigma, R, bins):
     plt.ylabel('$1/\\langle t_n \\rangle$', fontsize=fs)
 
 def plot_P_rho(dynamics, c, R_set, plot_type, N_set, sigma_set, initial_noise=0, arguments=None, plot_num=None, bins=None, t=None, realization_index=None, log=None, ave=None, xlim=None, ylim=None, color=None, fit=None, interval=None, fit_rho=None):
-    fig = plt.figure()
+    # fig = plt.figure()
+    fig, ax = plt.subplots()
     R_size = np.size(R_set)
     N_size = np.size(N_set)
     sigma_size = np.size(sigma_set)
@@ -316,8 +337,15 @@ def plot_P_rho(dynamics, c, R_set, plot_type, N_set, sigma_set, initial_noise=0,
                         des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_x_i' + str(initial_noise) + '/'
                     elif initial_noise == 'metastable':
                         des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
+
                 elif dynamics != 'quadratic' and R != 0.2:
-                    des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '/'
+                    if initial_noise == 0:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '/'
+                    elif type(initial_noise) == float:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '_x_i' + str(initial_noise) + '/'
+                    elif initial_noise == 'metastable':
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '_' + initial_noise + '/'
+
                 elif dynamics == 'quadratic':
                     des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/x2=' + str(c) + '/strength=' + str(sigma) + '/' + f'A1={arguments[0]}_A2={arguments[1]}_R={R}/'
 
@@ -338,13 +366,20 @@ def plot_P_rho(dynamics, c, R_set, plot_type, N_set, sigma_set, initial_noise=0,
                 elif plot_type == 'rho':
                     rho_from_data(des, plot_num, t, label, title, log, ave, color, fit, interval, fit_rho)
                 elif plot_type == 'heatmap':
-                    heatmap(des, realization_index, N, plot_range=[0, 300], plot_interval=1, dt=0.01)
+                    heatmap(des, realization_index, N, plot_range=[0, 1000], plot_interval=10, dt=0.01)
                 elif plot_type == 'tn_N':
                     tn_N(dynamics, N_set, c, sigma, R, bins)
                 elif plot_type == 'rho_compare_metastable':
-                    des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                    if R == 0.2:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '/'
+                    else:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R'  + str(R) + '/'
                     rho_from_data(des, plot_num, t, '$x_L$', title, log, ave, color, fit, interval, fit_rho)
-                    des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
+                    if R == 0.2:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_' + initial_noise + '/'
+                    else:
+                        des = '../data/' + dynamics + str(degree) + '/size' + str(N) + '/c' + str(c) + '/strength=' + str(sigma) + '_R' + str(R) + '_' + initial_noise + '/'
+
                     rho_from_data(des, plot_num, t, 'prepared metastable', title, log, ave, color, fit, interval, fit_rho)
 
 
@@ -352,35 +387,63 @@ def plot_P_rho(dynamics, c, R_set, plot_type, N_set, sigma_set, initial_noise=0,
                     plt.ylim(ylim)
                 if xlim != None:
                     plt.xlim(xlim)
-    plt.xticks(fontsize=ticksize)
-    plt.yticks(fontsize=ticksize)
-    plt.subplots_adjust(left=0.15, right=0.98, wspace=0.25, hspace=0.25, bottom=0.15, top=0.98)
 
-    # plt.show()
+    if plot_type == 'P' and log == 1 and ylim == None:
+        ax.yaxis.set_minor_locator(plt.MaxNLocator(6))
+        ax.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+        ax.get_yaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.1g') )
+        ax.tick_params(axis='both', which='major', labelsize=ticksize)
+        ax.tick_params(axis='both', which='minor', labelsize=ticksize*0.9)
+    else:
+        plt.xticks(fontsize=ticksize)
+        plt.yticks(fontsize=ticksize)
+        if log == 1:
+            plt.gcf().axes[-1].minorticks_off()
+
+        else:
+            ax.locator_params(axis='y', nbins=3)
+            ax.get_yaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.1g') )
+    #ax.xaxis.set_major_locator(plt.MaxNLocator(3))
+    ax.locator_params(axis='x', nbins=3)
+
+    fig.patch.set_alpha(0)
+    ax.patch.set_alpha(0)
+
+    #ax.locator_params(which = 'both', tight=True, nbins=3)
+    plt.subplots_adjust(left=0.28, right=0.96, wspace=0.25, hspace=0.25, bottom=0.28, top=0.96)
+    #plt.savefig(save_des, format="svg") 
+    #plt.close('all')
+ 
+
+    plt.show()
     return fig
 
+save_des = "../manuscript/F5h_legend.svg"
 degree =4
 N_set = [9, 16, 25, 36, 49, 64, 81, 100, 400, 900, 1600, 2500, 3600, 4900, 6400, 8100, 10000, 22500, 40000]
-sigma_set =[0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4]
-sigma_set = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-N_set = [9, 16, 25, 36, 49, 64, 81, 100]
-T = 100
+T = 1000
 dt = 0.01
 t = np.arange(0, T, dt)
 t = np.linspace(0, T, int(T/dt+1))
-plot_num = 100
 plot_num = 300000
+plot_num = 100
+plot_range = [0, 100]
 plot_range = [0, 1000]
-plot_interval = 1
+plot_interval = 10
 bins = np.arange(plot_range[0], plot_range[1], plot_interval) 
 bins = np.logspace(np.log10(plot_range[0] + 0.1), np.log10(plot_range[1]), 1001)
-realization_index = 0
+realization_index = 1
 log = 1
 ave = 1
 fit = 1
-fs = 20
-legendsize=14
-ticksize=15
+fs = 50 *0.6
+ticksize = 40 *0.6
+legendsize= 30 *0.7
+alpha = 0.8
+lw = 3
+marksize = 15
+
+
 
 A1 = 0.1
 A2 = 1
@@ -389,49 +452,36 @@ x2 = 1.2
 x3 = 5
 
 dynamics_set = ['mutual', 'harvest', 'eutrophication', 'vegetation', 'quadratic']
-c_set = [4, 1.8, 6, 2.6, x2]
+c_set = [4, 1.8, 1, 2.6, x2]
 index = 0
 R_set = [0, 0.0005, 0.003, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2, 0.5, 1]
 R_set = [20, 21, 22, 23, 24]
 R_set = [0.02]
 R_set = [0.2]
-N_set = [9, 100]
-N_set = [9, 100, 900, 2500, 10000]
+N_set = [10000]
+N_set = [100, 900, 2500, 10000]
+N_set = [900, 2500, 10000]
 N_set = [9, 16, 25, 36, 49, 64, 81, 100]
 N_set = [10000]
-N_set = [100]
-sigma_set= [0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03]
-sigma_set= [0.1, 0.02, 0.03, 0.021, 0.022, 0.025, 0.008]
-sigma_set = [0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002, 0.003, 0.004, 0.005]
-sigma_set = [0.00005, 0.0001, 0.0005, 0.001, 0.005]
-sigma_set = [0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5]
-sigma_set = [0.1, 0.11, 0.12, 0.13, 0.14, 0.15]
-sigma_set = [0.060, 0.061, 0.062, 0.063, 0.064, 0.065, 0.07]
-sigma_set = [0.07, 0.075, 0.08]
-sigma_set = [0.065, 0.066, 0.068, 0.07, 0.075, 0.08]
-sigma_set = [0.006, 0.0065, 0.007, 0.008]
-sigma_set = [0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.025]
-sigma_set = [0.02, 0.021, 0.022, 0.023]
-sigma_set = [0.053, 0.054, 0.055, 0.056, 0.057, 0.06]
-sigma_set = [0.0048, 0.0049, 0.005, 0.0051]
+sigma_set = [0.08]
 sigma_set = [0.08, 0.085, 0.09, 0.095, 0.1]
-sigma_set = [0.053, 0.054, 0.055, 0.056, 0.057]
-sigma_set = [0.06, 0.063, 0.065, 0.07]
 
 
 
 arguments = (A1, A2, x1, x3)
+plot_type = 'P'
 plot_type = 'heatmap'
 plot_type = 'rho_compare_metastable'
 plot_type = 'rho'
-plot_type = 'P'
 color ='tab:red'
-interval= [10, 1] 
-initial_noise = 'metastable'
+interval= [10, 10] 
 initial_noise = 0
+initial_noise = 'metastable'
 fit_rho = '3'
-xlim = [0, 10]
-ylim = [1e-3, 2]
+ylim = [1e-4, 1.5]
+xlim = [-5, 310]
 ylim = None
 xlim = None
+ylim = [1e-4, 1.5]
+xlim = [-1, 12]
 plot_P_rho(dynamics_set[index], c_set[index], R_set, plot_type, N_set, sigma_set, initial_noise, arguments, plot_num, bins, t, realization_index,  log, ave, xlim, ylim, color, fit, interval, fit_rho)
